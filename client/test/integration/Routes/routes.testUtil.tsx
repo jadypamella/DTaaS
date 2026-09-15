@@ -31,8 +31,8 @@ function testDrawerItem(name: RegExp, iconTestId: RegExp) {
 
 export async function testDrawer() {
   expect(screen.getByTestId(/ChevronLeftIcon/)).toBeInTheDocument();
-  testDrawerItem(/^Library$/, /Inventory2RoundedIcon/);
-  testDrawerItem(/^Digital Twins$/, /HubRoundedIcon/);
+  testDrawerItem(/^Library$/, /ExtensionRoundedIcon/);
+  testDrawerItem(/^Digital Twins$/, /PeopleRoundedIcon/);
   testDrawerItem(/^Automation$/, /PrecisionManufacturingRoundedIcon/);
   testDrawerItem(/Building Models/, /ViewInArRoundedIcon/);
   testDrawerItem(/Workbench/, /HandymanRoundedIcon/);

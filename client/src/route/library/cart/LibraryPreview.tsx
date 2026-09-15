@@ -48,14 +48,20 @@ export function createCombinedTabs() {
   );
 }
 
-function LibraryContent() {
-  const tabsData = createTabs();
-  const combinedData = createCombinedTabs();
+/**
+ * The tabbed body of the library preview, without the page frame. The
+ * standalone route wraps this in a Layout and a PageShell, and the Automation
+ * page places it beside the digital twins preview in one of its tabs.
+ */
+export function LibraryAutomationPanel() {
+  return <TabComponent assetType={createTabs()} scope={createCombinedTabs()} />;
+}
 
+function LibraryContent() {
   return (
     <Layout>
       <PageShell title="Library Page Preview">
-        <TabComponent assetType={tabsData} scope={combinedData} />
+        <LibraryAutomationPanel />
       </PageShell>
     </Layout>
   );

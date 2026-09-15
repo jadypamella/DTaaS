@@ -47,12 +47,19 @@ describe('Menu', () => {
     const libraryButton = screen.getByRole('link', { name: /Library/ });
     expect(libraryButton).toBeInTheDocument();
 
-    expect(screen.getByTestId(/ExtensionRoundedIcon/)).toBeInTheDocument();
+    expect(screen.getByTestId(/Inventory2RoundedIcon/)).toBeInTheDocument();
 
     expect(
       screen.getByRole('link', { name: /Digital Twins/ }),
     ).toBeInTheDocument();
-    expect(screen.getByTestId(/PeopleRoundedIcon/)).toBeInTheDocument();
+    expect(screen.getByTestId(/HubRoundedIcon/)).toBeInTheDocument();
+
+    expect(
+      screen.getByRole('link', { name: /Automation/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId(/PrecisionManufacturingRoundedIcon/),
+    ).toBeInTheDocument();
 
     expect(screen.getByRole('link', { name: /Workbench/ })).toBeInTheDocument();
     expect(screen.getByTestId(/HandymanRoundedIcon/)).toBeInTheDocument();

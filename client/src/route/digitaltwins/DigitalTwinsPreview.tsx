@@ -47,7 +47,12 @@ export const createDTTab = ({
         ),
     }));
 
-export const DTContent = () => {
+/**
+ * The tabbed body of the digital twins automation preview, without the page
+ * frame. The standalone route wraps this in a Layout and a PageShell, and the
+ * Automation page places it beside the library preview in one of its tabs.
+ */
+export const DigitalTwinsAutomationPanel = () => {
   const [newDigitalTwinName, setNewDigitalTwinName] = useState('');
   const dispatch = useDispatch();
 
@@ -65,19 +70,23 @@ export const DTContent = () => {
   }, [dispatch]);
 
   return (
-    <Layout>
-      <PageShell
-        title="Digital Twins Page Preview"
-        description="This page demonstrates integration of DTaaS with GitLab CI/CD workflows. The feature is experimental and requires certain GitLab setup in order for it to work."
-      >
-        <TabComponent
-          assetType={createDTTab({ newDigitalTwinName, setNewDigitalTwinName })}
-          scope={[]}
-        />
-      </PageShell>
-    </Layout>
+    <TabComponent
+      assetType={createDTTab({ newDigitalTwinName, setNewDigitalTwinName })}
+      scope={[]}
+    />
   );
 };
+
+export const DTContent = () => (
+  <Layout>
+    <PageShell
+      title="Digital Twins Page Preview"
+      description="This page demonstrates integration of DTaaS with GitLab CI/CD workflows. The feature is experimental and requires certain GitLab setup in order for it to work."
+    >
+      <DigitalTwinsAutomationPanel />
+    </PageShell>
+  </Layout>
+);
 
 export default function DigitalTwinsPreview() {
   return <DTContent />;

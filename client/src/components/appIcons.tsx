@@ -6,12 +6,14 @@
  * faces. Naming them here keeps them from drifting apart.
  */
 
-import ExtensionRoundedIcon from '@mui/icons-material/ExtensionRounded';
-import PeopleRoundedIcon from '@mui/icons-material/PeopleRounded';
+import Inventory2RoundedIcon from '@mui/icons-material/Inventory2Rounded';
+import HubRoundedIcon from '@mui/icons-material/HubRounded';
+import PrecisionManufacturingRoundedIcon from '@mui/icons-material/PrecisionManufacturingRounded';
 import HandymanRoundedIcon from '@mui/icons-material/HandymanRounded';
 import ViewInArRoundedIcon from '@mui/icons-material/ViewInArRounded';
 
-export const LibraryIcon = ExtensionRoundedIcon;
-export const DigitalTwinsIcon = PeopleRoundedIcon;
+export const LibraryIcon = Inventory2RoundedIcon;
+export const DigitalTwinsIcon = HubRoundedIcon;
+export const AutomationIcon = PrecisionManufacturingRoundedIcon;
 export const WorkbenchIcon = HandymanRoundedIcon;
 export const BuildingModelsIcon = ViewInArRoundedIcon;

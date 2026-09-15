@@ -103,13 +103,20 @@ of the page reveals the menu.
 
 ![Menu](images/menu.png)
 
-Three menu items are available:
+Five menu items are available:
 
 **Library**: For management of reusable library assets. Files can be uploaded,
 downloaded, created, and modified on this page.
 
 **Digital Twins**: For management of digital twins. A Jupyter Lab page is presented
 from which digital twins can be executed.
+
+**Automation**: The digital twins and library previews in one place. These
+features demonstrate the DTaaS integration with GitLab CI/CD and are
+experimental.
+
+**Building Models**: Draws the IFC building models in the user's library, and
+colours them by the readings their sensors report.
 
 **Workbench**: Not all digital twins can be managed within Jupyter Lab.
 Additional tools are available on this page.

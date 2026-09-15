@@ -50,7 +50,7 @@
     "@babel/plugin-transform-modules-systemjs": "8.0.1"
   },
   "dependencies": {
-    "@into-cps-association/bim-kit": "^0.1.0",
+    "@into-cps-association/bim-kit": "0.1.0",
     "three": "0.185.0",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",

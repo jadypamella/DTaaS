@@ -7,6 +7,7 @@ import {
   DialogContentText,
   DialogTitle,
   Box,
+  Typography,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import useCart from 'model/store/CartAccess';
@@ -20,6 +21,7 @@ function ShoppingCart() {
   const navigate = useNavigate();
   const [openDialog, setOpenDialog] = useState(false);
   const dispatch = useDispatch();
+  const isEmpty = state.assets.length === 0;
 
   const cartLogContext = (button: string) =>
     JSON.stringify({
@@ -33,53 +35,45 @@ function ShoppingCart() {
   };
 
   return (
-    <Box
-      sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: '230px',
-        padding: '10px',
-        overflow: 'hidden',
-      }}
-    >
-      <Box
-        sx={{
-          flex: '1 1 auto',
-          overflowY: 'auto',
-          marginBottom: '10px',
-        }}
-      >
-        <CartList />
-      </Box>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      {/* An empty panel said nothing about what it was for. It used to be a
+          fixed three hundred pixels of blank space under a heading, so the
+          first thing a person met on this page was a box with nothing in it
+          and no clue what would ever fill it. */}
+      {isEmpty ? (
+        <Typography variant="body2" color="text.secondary">
+          Nothing chosen yet. Add functions, models, tools or data from the list
+          and they will be listed here.
+        </Typography>
+      ) : (
+        <Box sx={{ maxHeight: 240, overflowY: 'auto' }}>
+          <CartList />
+        </Box>
+      )}
 
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          flexShrink: 0,
-          position: 'sticky',
-          bottom: 0,
-          background: 'white',
-          padding: '5px 0',
-        }}
-      >
+      {/* Both actions need something to act on, so neither is offered until
+          there is. Proceed used to carry an empty selection to the next page,
+          which arrived with nothing to build from. */}
+      <Box sx={{ display: 'flex', gap: 1 }}>
         <Button
           variant="contained"
+          disabled={isEmpty}
+          onClick={() => navigate('/preview/digitaltwins')}
+          data-logger-element="button"
+          data-logger-label="Proceed"
+          data-logger-context={cartLogContext('proceed')}
+        >
+          Create a Digital Twin
+        </Button>
+        <Button
+          variant="outlined"
+          disabled={isEmpty}
           onClick={() => setOpenDialog(true)}
           data-logger-element="button"
           data-logger-label="Clear Cart"
           data-logger-context={cartLogContext('clear')}
         >
           Clear
-        </Button>
-        <Button
-          variant="contained"
-          onClick={() => navigate('/preview/digitaltwins')}
-          data-logger-element="button"
-          data-logger-label="Proceed"
-          data-logger-context={cartLogContext('proceed')}
-        >
-          Proceed
         </Button>
       </Box>
 

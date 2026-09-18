@@ -22,7 +22,7 @@ import LayoutPublic from 'page/LayoutPublic';
 import Layout from 'page/Layout';
 import { useAuth } from 'react-oidc-context';
 
-function NotFoundContent() {
+function NotFoundContent({ embedded }: Readonly<{ embedded: boolean }>) {
   const { pathname } = useLocation();
 
   return (
@@ -92,9 +92,16 @@ function NotFoundContent() {
           {pathname}
         </Typography>
 
-        <Button component={Link} to="/" variant="contained" sx={{ mt: 2 }}>
-          Back to the Start
-        </Button>
+        {/* No way out from inside a frame. The link would load the whole
+            application into the frame it is already in, so the person ends up
+            with the platform nested inside one of its own panels, which is a
+            worse place than the error. Outside a frame the link is the way
+            back. */}
+        {!embedded && (
+          <Button component={Link} to="/" variant="contained" sx={{ mt: 2 }}>
+            Back to the Start
+          </Button>
+        )}
       </Card>
     </Box>
   );
@@ -102,10 +109,12 @@ function NotFoundContent() {
 
 function NotFound() {
   const auth = useAuth();
-  const content = <NotFoundContent />;
+  const embedded = typeof window !== 'undefined' && window.self !== window.top;
+
+  const content = <NotFoundContent embedded={embedded} />;
 
   // Embedded errors already sit inside the parent application's layout.
-  if (typeof window !== 'undefined' && window.self !== window.top) {
+  if (embedded) {
     return content;
   }
 

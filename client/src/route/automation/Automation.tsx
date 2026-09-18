@@ -22,9 +22,12 @@ import Typography from '@mui/material/Typography';
 import { Link as RouterLink } from 'react-router-dom';
 import { LibraryIcon, DigitalTwinsIcon } from 'components/appIcons';
 
+// The two cards are the two steps of one flow and not two views of the same
+// thing, so the description says what each step is for instead of naming them
+// together.
 const DESCRIPTION =
-  'The digital twins and library previews in one place. These features ' +
-  'demonstrate the DTaaS integration with GitLab CI/CD and are experimental.';
+  'Build a digital twin in two steps: gather the assets it needs, then create ' +
+  'and run it. Both steps drive GitLab CI/CD and are experimental.';
 
 interface AutomationCard {
   name: string;
@@ -33,19 +36,23 @@ interface AutomationCard {
   icon: React.ReactElement;
 }
 
-// Each card says what the page is, the way the workbench cards do, so the
-// destination is readable without opening it.
+// Each card says what its page does, the way the workbench cards do, so the
+// destination is readable without opening it. They are numbered because the
+// order matters: a selection made on the first is what the second starts from.
 const cards: AutomationCard[] = [
   {
     name: 'Library Page',
-    description: 'The library page on its own, without the platform around it.',
+    description:
+      'Step one. Browse the functions, models, tools and data in the ' +
+      'workspace, and choose the ones a digital twin needs.',
     to: '/preview/library',
     icon: <LibraryIcon />,
   },
   {
     name: 'Digital Twins Page',
     description:
-      'The digital twins page on its own, without the platform around it.',
+      'Step two. Create a digital twin from what was chosen, then run it and ' +
+      'follow the pipeline.',
     to: '/preview/digitaltwins',
     icon: <DigitalTwinsIcon />,
   },

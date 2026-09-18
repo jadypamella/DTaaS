@@ -799,7 +799,7 @@
 
 "@into-cps-association/bim-kit@file:./into-cps-association-bim-kit-0.1.1.tgz":
   version "0.1.1"
-  resolved "file:./into-cps-association-bim-kit-0.1.1.tgz#897b0dd56bc628a2f984dd93af52cc73a422d5c1"
+  resolved "file:./into-cps-association-bim-kit-0.1.1.tgz#918bea1be6e2efb33b08f7708d0db5dd7af0a2bf"
   dependencies:
     web-ifc "0.0.77"
 

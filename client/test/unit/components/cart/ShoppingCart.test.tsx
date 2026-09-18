@@ -19,46 +19,79 @@ jest.mock('react-router-dom', () => ({
   useNavigate: () => mockNavigate,
 }));
 
+const anAsset = { path: 'models/pump.fmu', isPrivate: true };
+
 describe('ShoppingCart', () => {
   const dispatch = jest.fn();
 
-  beforeEach(() => {
+  // Both actions need something to act on, so the tests that click one start
+  // from a selection that holds an asset. The empty case is its own test.
+  const renderCart = (assets: unknown[] = [anAsset]) => {
     (useDispatch as unknown as jest.Mock).mockReturnValue(dispatch);
-    (useSelector as unknown as jest.Mock).mockReturnValue({ assets: [] });
+    (useSelector as unknown as jest.Mock).mockReturnValue({ assets });
     render(<ShoppingCart />);
-  });
+  };
 
-  it('opens the clear-cart confirmation dialog when Clear is clicked', () => {
-    fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
-    expect(screen.getByText('Confirm Clear')).toBeInTheDocument();
-  });
+  describe('with nothing chosen', () => {
+    beforeEach(() => renderCart([]));
 
-  it('closes the dialog without clearing when No is clicked', async () => {
-    fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
-    fireEvent.click(screen.getByRole('button', { name: 'No' }));
+    it('says what the panel is waiting for instead of showing a blank box', () => {
+      expect(screen.getByText(/Nothing chosen yet/)).toBeInTheDocument();
+      expect(screen.queryByTestId('cart-list')).not.toBeInTheDocument();
+    });
 
-    await waitFor(() => {
-      expect(screen.queryByText('Confirm Clear')).not.toBeInTheDocument();
+    it('offers neither action, since there is nothing to act on', () => {
+      // Proceeding used to carry an empty selection to the next page, which
+      // arrived with nothing to build from.
+      expect(
+        screen.getByRole('button', { name: 'Create a Digital Twin' }),
+      ).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Clear' })).toBeDisabled();
     });
   });
 
-  it('logs the dismissal and closes when the dialog is dismissed via Escape', async () => {
-    fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
-    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+  describe('with an asset chosen', () => {
+    beforeEach(() => renderCart());
 
-    expect(logDismiss).toHaveBeenCalledWith({
-      element: 'dialog',
-      label: 'Confirm Clear Cart',
-      reason: 'escapeKeyDown',
-      context: { cart: { count: 0 } },
+    it('lists what was chosen', () => {
+      expect(screen.getByTestId('cart-list')).toBeInTheDocument();
+      expect(screen.queryByText(/Nothing chosen yet/)).not.toBeInTheDocument();
     });
-    await waitFor(() => {
-      expect(screen.queryByText('Confirm Clear')).not.toBeInTheDocument();
-    });
-  });
 
-  it('navigates to the digital twins preview when Proceed is clicked', () => {
-    fireEvent.click(screen.getByRole('button', { name: 'Proceed' }));
-    expect(mockNavigate).toHaveBeenCalledWith('/preview/digitaltwins');
+    it('opens the clear-cart confirmation dialog when Clear is clicked', () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+      expect(screen.getByText('Confirm Clear')).toBeInTheDocument();
+    });
+
+    it('closes the dialog without clearing when No is clicked', async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+      fireEvent.click(screen.getByRole('button', { name: 'No' }));
+
+      await waitFor(() => {
+        expect(screen.queryByText('Confirm Clear')).not.toBeInTheDocument();
+      });
+    });
+
+    it('logs the dismissal and closes when the dialog is dismissed via Escape', async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+      fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+
+      expect(logDismiss).toHaveBeenCalledWith({
+        element: 'dialog',
+        label: 'Confirm Clear Cart',
+        reason: 'escapeKeyDown',
+        context: { cart: { count: 1 } },
+      });
+      await waitFor(() => {
+        expect(screen.queryByText('Confirm Clear')).not.toBeInTheDocument();
+      });
+    });
+
+    it('navigates to the digital twins page when the selection is carried over', () => {
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Create a Digital Twin' }),
+      );
+      expect(mockNavigate).toHaveBeenCalledWith('/preview/digitaltwins');
+    });
   });
 });

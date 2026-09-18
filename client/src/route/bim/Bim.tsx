@@ -84,10 +84,13 @@ function Bim() {
   return (
     <Layout sx={{ display: 'flex' }}>
       <PageShell title="Building Models" description={DESCRIPTION}>
+        {/* The path reads as part of the sentence, so it is set in the same
+            face as the sentence. In a monospace face it looked like something
+            to be typed, when it is a place to go and the link already says so. */}
         <Typography variant="body2" sx={{ mb: 2 }}>
           Models are uploaded to the shared library under{' '}
           <Link component={RouterLink} to="/library">
-            <code>common/models</code>
+            common/models
           </Link>
           .
         </Typography>

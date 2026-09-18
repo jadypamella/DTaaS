@@ -22,21 +22,27 @@ function DigitalTwinNameInput({
   readonly value: string;
   readonly onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }) {
+  // The same shape as the search field on the Execute tab: at the start of the
+  // line, three hundred pixels wide and the small size. It used to sit in a
+  // box that was a third of the page and pushed its contents to the end, so
+  // the first field a person fills was the furthest thing from where they
+  // read, and it was taller than every other control on the page.
   return (
     <Box
       sx={{
         display: 'flex',
-        width: '35%',
-        marginTop: 1,
-        justifyContent: 'flex-end',
+        alignItems: 'center',
+        marginTop: 2,
       }}
     >
       <TextField
         fullWidth
+        size="small"
         variant="outlined"
-        label="Insert Digital Twin Name"
+        label="Digital twin name"
         value={value}
         onChange={onChange}
+        sx={{ maxWidth: 300 }}
         slotProps={{
           htmlInput: {
             'data-logger-element': 'input',

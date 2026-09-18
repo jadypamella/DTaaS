@@ -16,12 +16,32 @@
  * in the `X-XSRFToken` header, so the token is read from the cookie and sent
  * back. The session cookie travels because every request here is credentialed,
  * exactly as the reads the viewer already makes are.
+ *
+ * Why the write is split
+ * ----------------------
+ * A whole building converts to tens of megabytes, and base64 adds a third on
+ * top. Sent as one request the workspace closes the connection part way through
+ * and the write fails, so a large model was converted again on every open. The
+ * Contents API takes a file in pieces instead: the body carries a `chunk`
+ * number, the server truncates and writes on chunk one, appends on the ones
+ * after it, and runs its post-save hooks on `chunk: -1`. That is what
+ * JupyterLab's own uploader does, and it is handled by `AsyncLargeFileManager`,
+ * which is the contents manager a Jupyter server uses unless it is configured
+ * otherwise. The pieces have to arrive in order, since the server appends as
+ * each one lands, so they are sent one after another and never together.
  */
 
 import { contentsUrl } from '@into-cps-association/bim-kit/react';
 
 const IFC_SUFFIX = '.ifc';
 const GEOMETRY_SUFFIX = '.glb';
+
+/**
+ * How many bytes go in one request, matching what JupyterLab's own uploader
+ * sends. Small enough that the workspace accepts the body, large enough that a
+ * thirty megabyte model is a few dozen requests and not a few thousand.
+ */
+export const CHUNK_BYTES = 1024 * 1024;
 
 /**
  * The path the geometry is written to: the model's own path with `.ifc`
@@ -89,18 +109,43 @@ export async function uploadGeometry(
 
   const path = geometryPathFor(ifcPath);
   const url = contentsUrl(libraryUrl, path);
-  const response = await fetch(url, {
-    method: 'PUT',
-    credentials: 'include',
-    headers,
-    body: JSON.stringify({
+
+  const put = async (bytes: Uint8Array, chunk?: number) => {
+    const body: Record<string, unknown> = {
       type: 'file',
       format: 'base64',
-      content: toBase64(glb),
-    }),
-  });
+      content: toBase64(bytes),
+    };
+    if (chunk !== undefined) {
+      body.chunk = chunk;
+    }
+    const response = await fetch(url, {
+      method: 'PUT',
+      credentials: 'include',
+      headers,
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) {
+      throw new Error(`${url} returned HTTP ${response.status}`);
+    }
+  };
 
-  if (!response.ok) {
-    throw new Error(`${url} returned HTTP ${response.status}`);
+  // A model that fits in one request is sent as one, without a chunk number.
+  // Chunk one truncates the file, and nothing would then mark the end, so the
+  // server would never run the hooks that follow a completed save.
+  if (glb.length <= CHUNK_BYTES) {
+    await put(glb);
+    return;
+  }
+
+  const pieces = Math.ceil(glb.length / CHUNK_BYTES);
+  for (let index = 0; index < pieces; index += 1) {
+    const slice = glb.subarray(index * CHUNK_BYTES, (index + 1) * CHUNK_BYTES);
+    // Counted from one, with the last one marked -1, which is how the server
+    // knows the file is complete.
+    const chunk = index === pieces - 1 ? -1 : index + 1;
+    // The server appends as each piece lands, so they cannot be sent together.
+    // eslint-disable-next-line no-await-in-loop
+    await put(slice, chunk);
   }
 }

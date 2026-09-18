@@ -3,13 +3,15 @@
  *
  * The upload talks to the Jupyter Contents API, so these check the parts that
  * make that request correct: the path the geometry is written to, the XSRF
- * token read from the cookie, the base64 body, and that a rejection is raised
- * when the token is missing or the server refuses the write. The URL building
- * itself belongs to the package and is tested where the package is built, so
- * the package is mocked here through the same stand-in the route tests use.
+ * token read from the cookie, the base64 body, the pieces a model too large for
+ * one request is split into, and that a rejection is raised when the server
+ * refuses a write. The URL building itself belongs to the package and is tested
+ * where the package is built, so the package is mocked here through the same
+ * stand-in the route tests use.
  */
 
 import {
+  CHUNK_BYTES,
   geometryPathFor,
   readXsrfToken,
   toBase64,
@@ -120,6 +122,64 @@ describe('uploadGeometry', () => {
       format: 'base64',
       content: toBase64(glb),
     });
+  });
+
+  it('sends a large model in ordered pieces, with the last one marked', async () => {
+    // Two and a bit chunks, so there is a first, a middle and a last. Sent as
+    // one request the workspace closes the connection part way through, which
+    // is what left a large model converting again on every open.
+    const large = new Uint8Array(CHUNK_BYTES * 2 + 512).fill(7);
+    const fetchMock = jest.fn().mockResolvedValue({ ok: true, status: 201 });
+    globalThis.fetch = fetchMock;
+
+    await uploadGeometry(libraryUrl, ifcPath, large);
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    const bodies = fetchMock.mock.calls.map(([, init]) =>
+      JSON.parse(init.body),
+    );
+    expect(bodies.map((body) => body.chunk)).toEqual([1, 2, -1]);
+
+    // Every piece is a file in base64, and together they are the model. The
+    // sizes matter: a lost or repeated piece would still pass a count check.
+    bodies.forEach((body) => {
+      expect(body.type).toBe('file');
+      expect(body.format).toBe('base64');
+    });
+    const sent = bodies.reduce(
+      (total, body) => total + atob(body.content).length,
+      0,
+    );
+    expect(sent).toBe(large.length);
+    expect(atob(bodies[2].content)).toHaveLength(512);
+  });
+
+  it('sends a model that fits in one request without a chunk number', async () => {
+    // Chunk one truncates the file and nothing would mark the end, so the
+    // server would never run the hooks that follow a completed save.
+    const fetchMock = jest.fn().mockResolvedValue({ ok: true, status: 201 });
+    globalThis.fetch = fetchMock;
+
+    await uploadGeometry(libraryUrl, ifcPath, new Uint8Array(CHUNK_BYTES));
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).chunk).toBeUndefined();
+  });
+
+  it('stops at the piece the server refuses', async () => {
+    // The file is left incomplete either way. Carrying on would write the rest
+    // of a model whose middle is missing, and the listing would then show a
+    // geometry that loads as a broken file instead of no geometry at all.
+    const fetchMock = jest
+      .fn()
+      .mockResolvedValueOnce({ ok: true, status: 201 })
+      .mockResolvedValueOnce({ ok: false, status: 413 });
+    globalThis.fetch = fetchMock;
+
+    await expect(
+      uploadGeometry(libraryUrl, ifcPath, new Uint8Array(CHUNK_BYTES * 3)),
+    ).rejects.toThrow(/HTTP 413/);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it('rejects when the server refuses the write', async () => {

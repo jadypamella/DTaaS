@@ -32,7 +32,7 @@ function DigitalTwinNameInput({
       fullWidth
       size="small"
       variant="outlined"
-      label="Digital twin name"
+      label="Digital Twin Name"
       value={value}
       onChange={onChange}
       sx={{ maxWidth: 300 }}

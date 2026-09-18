@@ -205,7 +205,7 @@ describe('Sidebar', () => {
 
     await renderSidebar(ASSET_NAME, 'create');
 
-    const addFile = screen.getByText('Add new file');
+    const addFile = screen.getByText('Add New File');
     await act(async () => {
       fireEvent.click(addFile);
     });
@@ -230,7 +230,7 @@ describe('Sidebar', () => {
 
     await renderSidebar(ASSET_NAME, 'create');
 
-    const addFileButton = screen.getByText('Add new file');
+    const addFileButton = screen.getByText('Add New File');
 
     await act(async () => {
       fireEvent.click(addFileButton);

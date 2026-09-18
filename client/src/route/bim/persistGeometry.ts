@@ -37,11 +37,18 @@ const IFC_SUFFIX = '.ifc';
 const GEOMETRY_SUFFIX = '.glb';
 
 /**
- * How many bytes go in one request, matching what JupyterLab's own uploader
- * sends. Small enough that the workspace accepts the body, large enough that a
- * thirty megabyte model is a few dozen requests and not a few thousand.
+ * How many bytes of the model go in one request.
+ *
+ * The workspace refuses a request body of a megabyte with HTTP 413 and then
+ * closes the connection, which is the broken pipe a large model used to fail
+ * with. Base64 adds a third, so the body is four thirds of this number: at
+ * 512 KB it is 683 KB, which the workspace accepts, and the first size measured
+ * to fail was a 768 KB piece, whose body is exactly 1024 KB.
+ *
+ * Measured against the running workspace rather than assumed, because the limit
+ * belongs to the server in front of Jupyter and is not in its configuration.
  */
-export const CHUNK_BYTES = 1024 * 1024;
+export const CHUNK_BYTES = 512 * 1024;
 
 /**
  * The path the geometry is written to: the model's own path with `.ifc`

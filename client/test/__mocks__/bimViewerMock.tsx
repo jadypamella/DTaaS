@@ -11,8 +11,41 @@
  * attributes below are what show that.
  */
 
-export function BuildingModels({ libraryUrl }: { libraryUrl?: string }) {
-  return <div data-testid="building-models" data-library-url={libraryUrl} />;
+export function BuildingModels({
+  libraryUrl,
+  onPersistGeometry,
+}: {
+  libraryUrl?: string;
+  onPersistGeometry?: (
+    model: { ifcPath: string },
+    glb: Uint8Array,
+  ) => Promise<void>;
+}) {
+  return (
+    <div data-testid="building-models" data-library-url={libraryUrl}>
+      {/* The real viewer calls this once, after it has converted a model that
+          had no geometry beside it. A button is how a test reaches the same
+          call without a renderer. */}
+      {onPersistGeometry && (
+        <button
+          type="button"
+          data-testid="persist-geometry"
+          onClick={() => {
+            // The package swallows a rejection, because a conversion that was
+            // not stored costs a reconversion and nothing else. The stand-in
+            // has to do the same or a refused write fails the test that is
+            // checking the refusal is reported.
+            onPersistGeometry(
+              { ifcPath: 'common/models/Substation.ifc' },
+              new Uint8Array([1, 2, 3]),
+            ).catch(() => {});
+          }}
+        >
+          persist
+        </button>
+      )}
+    </div>
+  );
 }
 
 /**

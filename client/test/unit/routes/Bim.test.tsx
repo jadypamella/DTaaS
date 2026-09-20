@@ -18,9 +18,15 @@ import { useDispatch, useSelector } from 'react-redux';
 import Bim from 'route/bim/Bim';
 import routes from 'routes';
 import { mockAuthState, mockURLforLIB } from 'test/__mocks__/global_mocks';
+import userEvent from '@testing-library/user-event';
+import { uploadGeometry } from 'route/bim/persistGeometry';
 import { renderWithRouter } from 'test/unit/unit.testUtil';
 
 jest.mock('react-oidc-context');
+
+jest.mock('route/bim/persistGeometry', () => ({
+  uploadGeometry: jest.fn(),
+}));
 
 jest.mock('page/Layout', () => {
   const react = jest.requireActual('react');
@@ -46,6 +52,38 @@ describe('Bim', () => {
     // every other route does, so it needs a dispatch it can call.
     (useDispatch as unknown as jest.Mock).mockReturnValue(jest.fn());
     signedInAs('jady.pamella');
+  });
+
+  it('hands the conversion to the library, with the model it belongs to', async () => {
+    (uploadGeometry as jest.Mock).mockResolvedValue(undefined);
+    renderWithRouter(<Bim />, { route: '/private' });
+
+    await userEvent.click(screen.getByTestId('persist-geometry'));
+
+    expect(uploadGeometry).toHaveBeenCalledWith(
+      mockURLforLIB,
+      'common/models/Substation.ifc',
+      expect.any(Uint8Array),
+    );
+  });
+
+  it('reports a refused write instead of losing it', async () => {
+    // A workspace with XSRF protection enabled refuses every write, and the
+    // cookie that would satisfy it is HttpOnly. Without this line that
+    // deployment looks exactly like one where the feature works.
+    const debug = jest.spyOn(console, 'debug').mockImplementation(() => {});
+    const failure = new Error('HTTP 403');
+    (uploadGeometry as jest.Mock).mockRejectedValue(failure);
+
+    renderWithRouter(<Bim />, { route: '/private' });
+    await userEvent.click(screen.getByTestId('persist-geometry'));
+
+    expect(debug).toHaveBeenCalledWith(
+      'The conversion was not stored.',
+      'common/models/Substation.ifc',
+      failure,
+    );
+    debug.mockRestore();
   });
 
   it('renders the viewer', () => {
@@ -83,6 +121,19 @@ describe('Bim', () => {
 describe('the bim route', () => {
   it('is registered', () => {
     expect(routes.some((route) => route.path === 'bim')).toBe(true);
+  });
+
+  it('loads the page on demand rather than in the entry chunk', async () => {
+    // The route holds a lazy component, so its element renders the Suspense
+    // fallback first and the page only after the chunk resolves. This is what
+    // keeps the renderer and the geometry kernel out of the entry bundle, and
+    // asserting it here is what stops that being undone by accident.
+    const route = routes.find((entry) => entry.path === 'bim');
+    renderWithRouter(route!.element as React.ReactElement, {
+      route: '/private',
+    });
+
+    expect(await screen.findByTestId('building-models')).toBeInTheDocument();
   });
 
   it('leaves the routes the release already had', () => {

@@ -269,6 +269,24 @@ describe('uploadGeometry', () => {
     expect(fetchMock.mock.calls[0][1].method).toBe('GET');
   });
 
+  it('writes when the existence check itself fails', async () => {
+    // A network failure on the check says nothing about the file. The caller
+    // only asks when it believes there is nothing to lose, so writing is the
+    // better guess than skipping.
+    const fetchMock = jest.fn();
+    fetchMock.mockImplementation(
+      (_url: unknown, init: { method?: string } = {}) =>
+        init.method === 'GET'
+          ? Promise.reject(new TypeError('network down'))
+          : Promise.resolve({ ok: true, status: 201 }),
+    );
+    globalThis.fetch = fetchMock;
+
+    await uploadGeometry(libraryUrl, ifcPath, glb);
+
+    expect(writesOf(fetchMock)).toHaveLength(1);
+  });
+
   it('rejects when the server refuses the write', async () => {
     document.cookie = '_xsrf=tok';
     globalThis.fetch = emptyWorkspace({ ok: false, status: 403 });

@@ -31,7 +31,10 @@
  * each one lands, so they are sent one after another and never together.
  */
 
-import { contentsUrl } from '@into-cps-association/bim-kit/react';
+import {
+  MODELS_DIRECTORY,
+  contentsUrl,
+} from '@into-cps-association/bim-kit/react';
 
 const IFC_SUFFIX = '.ifc';
 const GEOMETRY_SUFFIX = '.glb';
@@ -49,6 +52,39 @@ const GEOMETRY_SUFFIX = '.glb';
  * belongs to the server in front of Jupyter and is not in its configuration.
  */
 export const CHUNK_BYTES = 512 * 1024;
+
+/**
+ * The largest conversion that is written back.
+ *
+ * `toBase64` builds the whole encoded string before any of it is sent, so the
+ * tab holds the bytes and a string a third larger at the same time. Past this
+ * the browser is the constraint and not the server, and a conversion that is
+ * not stored costs a reconversion, which is what this feature saves. It is not
+ * a security boundary: the bytes were produced in this tab from a file the
+ * library already held.
+ */
+export const MAX_GEOMETRY_BYTES = 64 * 1024 * 1024;
+
+/**
+ * Refuse any path that is not a file directly inside the models directory.
+ *
+ * The path is derived from a listing the workspace returned, so it is not user
+ * input today. It becomes one the moment anything else feeds this function, and
+ * a `..` segment in a credentialed PUT writes wherever it points. The guard is
+ * here because this is the only place in the application that writes to the
+ * workspace, and it costs nothing.
+ */
+export function isWritableGeometryPath(path: string): boolean {
+  if (path.startsWith('/') || path.includes('\\')) return false;
+
+  const prefix = `${MODELS_DIRECTORY}/`;
+  if (!path.startsWith(prefix)) return false;
+
+  const name = path.slice(prefix.length);
+  // One segment, so nothing nests out of the directory and nothing nests into
+  // it either.
+  return name.length > 0 && !name.includes('/') && !name.includes('..');
+}
 
 /**
  * The path the geometry is written to: the model's own path with `.ifc`
@@ -93,6 +129,21 @@ export function toBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
+/** Whether the workspace already holds a file at this address. */
+async function exists(url: string): Promise<boolean> {
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      credentials: 'include',
+    });
+    return response.ok;
+  } catch {
+    // A failure here says nothing about the file. Writing is the better guess,
+    // since the caller only asks when it believes there is nothing to lose.
+    return false;
+  }
+}
+
 /**
  * Write the geometry beside its model, so it is not reconverted next time.
  *
@@ -115,7 +166,28 @@ export async function uploadGeometry(
   }
 
   const path = geometryPathFor(ifcPath);
+  if (!isWritableGeometryPath(path)) {
+    throw new Error(`${path} is not a file in ${MODELS_DIRECTORY}`);
+  }
+  if (glb.byteLength > MAX_GEOMETRY_BYTES) {
+    throw new Error(
+      `the conversion is ${glb.byteLength} bytes, over the ${MAX_GEOMETRY_BYTES} limit`,
+    );
+  }
+
+  // `libraryUrl` is assembled by the application from its own deployment
+  // configuration and the signed-in user name. It is not user input, which is
+  // what makes a credentialed write to it acceptable.
   const url = contentsUrl(libraryUrl, path);
+
+  // A geometry produced outside the browser is better than one produced in it,
+  // and the documentation tells an administrator to make one for a large model.
+  // The package only asks for a conversion to be stored when it found none, so
+  // this repeats that check against the server at the moment of writing, where
+  // the listing this decision came from may be minutes old.
+  if (await exists(url)) {
+    return;
+  }
 
   const put = async (bytes: Uint8Array, chunk?: number) => {
     const body: Record<string, unknown> = {

@@ -137,6 +137,30 @@ The trade is a larger artifact on the one download that needs it, against a
 deployment step that cannot be got wrong. For a platform whose install stories
 include localhost and air-gapped, the second matters more.
 
+### Converting Once Instead of on Every Visit
+
+When a model has no `.glb` beside it, the page converts it in the browser and
+then writes the result back into the library, next to the `.ifc`. The next visit
+finds the file and loads it, so the conversion is paid for once by whoever
+opened the model first.
+
+The write goes through the workspace's own Jupyter Contents API, the same
+interface the Library page reads through, and in pieces of 512 KB, because the
+server in front of Jupyter refuses a request body of a megabyte. It is bounded:
+the destination has to be a single file directly inside `common/models`, a
+conversion over 64 MB is not written, and an address that already holds a file
+is left alone, so a geometry produced outside the browser is never replaced.
+
+It can fail without anything visible going wrong, and that is by design: a model
+that is not stored simply converts again. The one case worth knowing about is a
+workspace with Jupyter XSRF protection enabled, where the token sits in an
+`HttpOnly` cookie that script cannot read, so every write is refused. The
+failure is written to the browser console.
+
+Producing the `.glb` outside the browser is still the better route for a large
+model, and it is what the administrator documentation recommends. This is what
+happens when nobody has.
+
 ### Recording Where an Artifact Came From
 
 Every derived file records the hash of the source it was made from and the name
@@ -172,5 +196,3 @@ declares no sensors anyway, and the majority of architectural models do.
   it. Opening that panel from a marker is not implemented.
 - **Federation.** Several discipline models viewed together as one building is
   not supported. Each model is drawn on its own.
-- **Writing the converted geometry back to the library**, so a model is
-  converted once instead of on every visit.

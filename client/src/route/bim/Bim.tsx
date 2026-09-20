@@ -42,11 +42,21 @@ function Bim() {
 
   // Store a browser-converted model back in the library, so switching away and
   // back does not convert it again. The viewer hands over the GLB; this knows
-  // the library address and writes it there. A failure is the viewer's to
-  // swallow: the model already drew, and it reconverts next time.
+  // the library address and writes it there.
+  //
+  // A failure costs a reconversion and nothing else, so it does not reach the
+  // screen. It is written to the console first, because the failure that
+  // matters is invisible otherwise: a workspace with Jupyter XSRF protection
+  // enabled sets an HttpOnly `_xsrf` cookie, which script cannot read, so the
+  // header is omitted and every write is refused. Without this line that
+  // deployment looks exactly like one where the feature works.
   const persistGeometry = useCallback(
     (model: BimModel, glb: Uint8Array) =>
-      uploadGeometry(libraryUrl, model.ifcPath, glb),
+      uploadGeometry(libraryUrl, model.ifcPath, glb).catch((error: Error) => {
+        // eslint-disable-next-line no-console
+        console.debug('The conversion was not stored.', model.ifcPath, error);
+        throw error;
+      }),
     [libraryUrl],
   );
 

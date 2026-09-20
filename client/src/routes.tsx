@@ -1,3 +1,5 @@
+import { Suspense, lazy } from 'react';
+import CircularProgress from '@mui/material/CircularProgress';
 import WorkBench from 'route/workbench/Workbench';
 import LayoutPublic from 'page/LayoutPublic';
 import PrivateRoute from 'route/auth/PrivateRoute';
@@ -11,8 +13,17 @@ import Config from 'route/config/Config';
 import Measurement from 'route/measurement/Measurement';
 import LogViewer from 'page/LogViewer';
 import NotFound from 'page/NotFound';
-import Bim from 'route/bim/Bim';
 import Automation from 'route/automation/Automation';
+
+/**
+ * The only route loaded on demand.
+ *
+ * Building Models pulls in a renderer and a WebAssembly geometry kernel, which
+ * together are larger than the rest of the application. Loading it lazily is
+ * stated here, at the route, instead of being left to whatever the package does
+ * internally, where it would regress silently on a version bump.
+ */
+const Bim = lazy(() => import('route/bim/Bim'));
 
 export const routes = [
   {
@@ -67,7 +78,10 @@ export const routes = [
     path: 'bim',
     element: (
       <PrivateRoute>
-        <Bim />
+        {/* The fallback is what a person sees while the renderer downloads. */}
+        <Suspense fallback={<CircularProgress sx={{ m: 4 }} />}>
+          <Bim />
+        </Suspense>
       </PrivateRoute>
     ),
   },

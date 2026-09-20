@@ -27,4 +27,7 @@ export function contentsUrl(libraryUrl: string, path: string) {
   return `${root}api/contents/${encoded}`;
 }
 
-export default { BuildingModels, contentsUrl };
+/** The directory the upload guard checks a destination against. */
+export const MODELS_DIRECTORY = 'common/models';
+
+export default { BuildingModels, contentsUrl, MODELS_DIRECTORY };

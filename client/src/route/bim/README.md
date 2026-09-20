@@ -241,9 +241,37 @@ itself, which is where it belongs. Reported here as not run, never as passed.
 The route is behind `PrivateRoute`, like every page that reads a user's files.
 
 Model conversion happens in the browser, in WebAssembly, against a file the
-signed-in user already has access to. Nothing is uploaded anywhere and no new
-server-side endpoint exists, so this route adds no new attack surface to the
-deployment.
+signed-in user already has access to. No new server-side endpoint exists: the
+route reads and writes through the workspace's own Jupyter Contents API, which
+the Library page already uses.
+
+The route does write. When a model has no geometry beside it, the conversion
+produced in the browser is written back as a `.glb` next to the `.ifc`, so the
+next visit loads a file instead of converting again. That is the one
+state-changing thing on this page, and `persistGeometry.ts` is where all of it
+lives. What bounds it:
+
+- The destination is derived from the model's own path and then checked: it has
+  to be a single file directly inside `common/models`, with no `..` and no
+  leading slash. The path comes from a listing the workspace returned, so it is
+  not user input today, and the check is there for the day something else feeds
+  that function.
+- The write is refused above 64 MB. The encoder builds the whole base64 string
+  before sending, so past that the tab is the constraint.
+- An address that already holds a file is left alone, so a geometry produced
+  outside the browser is never replaced by one produced inside it.
+- The request is credentialed, and the address it goes to is assembled by the
+  application from its own deployment configuration and the signed-in user name.
+  That is what makes sending credentials to it acceptable.
+
+One deployment assumption is load-bearing. The Jupyter server guards writes with
+a token it sets as the `_xsrf` cookie and expects echoed in a header. The
+workspace image this runs against sets no such cookie and accepts the write, so
+the token is sent when present and left out when it is not. On a workspace that
+does enable that protection the cookie is `HttpOnly`, script cannot read it, and
+every write here is refused. That failure costs a reconversion and nothing else,
+and it is written to the browser console so the deployment does not look like
+one where the feature works.
 
 The GitLab application id used for sign-in is deployment configuration and stays
 in the deployment's own `config/client.js`, which is gitignored. It is not a

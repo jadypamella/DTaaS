@@ -12,7 +12,9 @@
 
 import {
   CHUNK_BYTES,
+  MAX_GEOMETRY_BYTES,
   geometryPathFor,
+  isWritableGeometryPath,
   readXsrfToken,
   toBase64,
   uploadGeometry,
@@ -77,10 +79,51 @@ describe('toBase64', () => {
   });
 });
 
+describe('isWritableGeometryPath', () => {
+  it('accepts a file directly inside the models directory', () => {
+    expect(isWritableGeometryPath('common/models/Substation.glb')).toBe(true);
+  });
+
+  it.each([
+    ['escapes the directory', 'common/models/../../secrets.glb'],
+    ['is an absolute path', '/etc/passwd'],
+    ['is outside the directory', 'common/functions/a.glb'],
+    ['nests inside the directory', 'common/models/sub/a.glb'],
+    ['is the directory itself', 'common/models/'],
+    ['uses a backslash', 'common/models/..\\a.glb'],
+    ['only looks like the directory', 'common/models-other/a.glb'],
+  ])('refuses a destination that %s', (_reason, path) => {
+    // The destination is derived from a listing today, so none of these can
+    // arrive yet. The guard is what keeps that true if anything else ever
+    // feeds this function, because the write that follows is credentialed.
+    expect(isWritableGeometryPath(path)).toBe(false);
+  });
+});
+
 describe('uploadGeometry', () => {
   const libraryUrl = 'http://localhost/jane/';
   const ifcPath = 'common/models/Substation.ifc';
   const glb = new Uint8Array([1, 2, 3, 4]);
+
+  /**
+   * A workspace where nothing sits at the destination yet.
+   *
+   * The upload asks before it writes, so a mock answering every request the
+   * same way would report the file as already there and skip the write.
+   */
+  const emptyWorkspace = (write: object = { ok: true, status: 201 }) => {
+    const mock = jest.fn();
+    mock.mockImplementation((_url: unknown, init: { method?: string } = {}) =>
+      Promise.resolve(
+        init.method === 'GET' ? { ok: false, status: 404 } : write,
+      ),
+    );
+    return mock;
+  };
+
+  /** Only the writes, since every call now starts with the existence check. */
+  const writesOf = (mock: jest.Mock) =>
+    mock.mock.calls.filter(([, init]) => init.method === 'PUT');
 
   afterEach(() => {
     document.cookie = '_xsrf=; expires=Thu, 01 Jan 1970 00:00:00 GMT';
@@ -90,30 +133,29 @@ describe('uploadGeometry', () => {
   it('writes without the XSRF header when the workspace sets no token', async () => {
     // The workspace image this runs against sets no _xsrf cookie and accepts
     // the write regardless, so a missing token must not block the write.
-    const fetchMock = jest.fn().mockResolvedValue({ ok: true, status: 201 });
+    const fetchMock = emptyWorkspace();
     globalThis.fetch = fetchMock;
 
     await uploadGeometry(libraryUrl, ifcPath, glb);
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    const [, init] = fetchMock.mock.calls[0];
-    expect(init.method).toBe('PUT');
-    expect(init.headers['X-XSRFToken']).toBeUndefined();
+    const writes = writesOf(fetchMock);
+    expect(writes).toHaveLength(1);
+    expect(writes[0][1].headers['X-XSRFToken']).toBeUndefined();
   });
 
   it('puts the geometry to the contents API with the token and a base64 body', async () => {
     document.cookie = '_xsrf=tok';
-    const fetchMock = jest.fn().mockResolvedValue({ ok: true, status: 201 });
+    const fetchMock = emptyWorkspace();
     globalThis.fetch = fetchMock;
 
     await uploadGeometry(libraryUrl, ifcPath, glb);
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    const [url, init] = fetchMock.mock.calls[0];
+    const writes = writesOf(fetchMock);
+    expect(writes).toHaveLength(1);
+    const [url, init] = writes[0];
     expect(url).toBe(
       'http://localhost/jane/api/contents/common/models/Substation.glb',
     );
-    expect(init.method).toBe('PUT');
     expect(init.credentials).toBe('include');
     expect(init.headers['X-XSRFToken']).toBe('tok');
     expect(init.headers['Content-Type']).toBe('application/json');
@@ -129,15 +171,12 @@ describe('uploadGeometry', () => {
     // one request the workspace closes the connection part way through, which
     // is what left a large model converting again on every open.
     const large = new Uint8Array(CHUNK_BYTES * 2 + 512).fill(7);
-    const fetchMock = jest.fn().mockResolvedValue({ ok: true, status: 201 });
+    const fetchMock = emptyWorkspace();
     globalThis.fetch = fetchMock;
 
     await uploadGeometry(libraryUrl, ifcPath, large);
 
-    expect(fetchMock).toHaveBeenCalledTimes(3);
-    const bodies = fetchMock.mock.calls.map(([, init]) =>
-      JSON.parse(init.body),
-    );
+    const bodies = writesOf(fetchMock).map(([, init]) => JSON.parse(init.body));
     expect(bodies.map((body) => body.chunk)).toEqual([1, 2, -1]);
 
     // Every piece is a file in base64, and together they are the model. The
@@ -157,34 +196,82 @@ describe('uploadGeometry', () => {
   it('sends a model that fits in one request without a chunk number', async () => {
     // Chunk one truncates the file and nothing would mark the end, so the
     // server would never run the hooks that follow a completed save.
-    const fetchMock = jest.fn().mockResolvedValue({ ok: true, status: 201 });
+    const fetchMock = emptyWorkspace();
     globalThis.fetch = fetchMock;
 
     await uploadGeometry(libraryUrl, ifcPath, new Uint8Array(CHUNK_BYTES));
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body).chunk).toBeUndefined();
+    const writes = writesOf(fetchMock);
+    expect(writes).toHaveLength(1);
+    expect(JSON.parse(writes[0][1].body).chunk).toBeUndefined();
   });
 
   it('stops at the piece the server refuses', async () => {
     // The file is left incomplete either way. Carrying on would write the rest
     // of a model whose middle is missing, and the listing would then show a
     // geometry that loads as a broken file instead of no geometry at all.
-    const fetchMock = jest
-      .fn()
-      .mockResolvedValueOnce({ ok: true, status: 201 })
-      .mockResolvedValueOnce({ ok: false, status: 413 });
+    let put = 0;
+    const fetchMock = jest.fn();
+    fetchMock.mockImplementation(
+      (_url: unknown, init: { method?: string } = {}) => {
+        if (init.method === 'GET') {
+          return Promise.resolve({ ok: false, status: 404 });
+        }
+        put += 1;
+        return Promise.resolve(
+          put === 1 ? { ok: true, status: 201 } : { ok: false, status: 413 },
+        );
+      },
+    );
     globalThis.fetch = fetchMock;
 
     await expect(
       uploadGeometry(libraryUrl, ifcPath, new Uint8Array(CHUNK_BYTES * 3)),
     ).rejects.toThrow(/HTTP 413/);
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(writesOf(fetchMock)).toHaveLength(2);
+  });
+
+  it('refuses a destination outside the models directory', async () => {
+    const fetchMock = jest.fn();
+    globalThis.fetch = fetchMock;
+
+    await expect(
+      uploadGeometry(libraryUrl, '../../etc/passwd.ifc', glb),
+    ).rejects.toThrow(/not a file in common\/models/);
+    // Nothing is sent at all, so a refused destination is never even read.
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('refuses a conversion over the size limit', async () => {
+    const fetchMock = jest.fn();
+    globalThis.fetch = fetchMock;
+
+    // The encoder builds the whole base64 string before sending, so the limit
+    // is about this tab's memory and not about the server.
+    const huge = { byteLength: MAX_GEOMETRY_BYTES + 1 } as Uint8Array;
+
+    await expect(uploadGeometry(libraryUrl, ifcPath, huge)).rejects.toThrow(
+      /over the/,
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('leaves a geometry that is already there alone', async () => {
+    // A .glb produced outside the browser is the better artifact, and the
+    // administrator documentation tells you to make one for a large model.
+    const fetchMock = jest.fn();
+    fetchMock.mockResolvedValue({ ok: true, status: 200 });
+    globalThis.fetch = fetchMock;
+
+    await uploadGeometry(libraryUrl, ifcPath, glb);
+
+    expect(writesOf(fetchMock)).toHaveLength(0);
+    expect(fetchMock.mock.calls[0][1].method).toBe('GET');
   });
 
   it('rejects when the server refuses the write', async () => {
     document.cookie = '_xsrf=tok';
-    globalThis.fetch = jest.fn().mockResolvedValue({ ok: false, status: 403 });
+    globalThis.fetch = emptyWorkspace({ ok: false, status: 403 });
 
     await expect(uploadGeometry(libraryUrl, ifcPath, glb)).rejects.toThrow(
       /HTTP 403/,

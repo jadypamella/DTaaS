@@ -11,17 +11,32 @@ half, meaning what the route holds and what it deliberately does not, is in
 
 ## What the Page Needs
 
-Three files, all of them in the user's library under `common/models`:
+Up to four files, all of them in the user's library under `common/models`:
 
 | File | Required | What it holds |
 | --- | --- | --- |
 | `model.ifc` | yes | The building, as the authoring tool exported it |
+| `model.glb` | no | The geometry converted from the IFC file. The page writes it the first time the model is converted |
 | `model.json` | no | The property tree: every object, its IFC class, its storey, its property sets |
 | `model.manifest.json` | no | The binding manifest, mapping each sensor to the object it measures |
 
-An IFC file on its own is enough to see the building. The property tree adds
-the panel behind a click. The manifest adds the readings. Nothing fails when
-the last two are missing, and the page says which of the three it found.
+An IFC file on its own is enough to see the building. The geometry makes the
+next visit load instead of convert. The property tree adds the panel behind a
+click. The manifest adds the readings. Nothing fails when the last three are
+missing.
+
+## How a Model Is Named
+
+The IFC Model menu names each model by what its own file says the building is
+called: the project's long name, then its name, then the building's. Only the
+first 64 KB of each file is read for this. Template text an authoring tool
+leaves behind, such as `Project Name`, and a name two files share are skipped,
+and those models are shown by their file name with underscores read as spaces.
+
+A file that carries no name can be given one with `ifc-set-name` from the
+[ifc-utils](https://github.com/INTO-CPS-Association/ifc-utils) repository,
+which writes it into the file and changes nothing else. Nothing about the names
+is kept in DTaaS.
 
 ## The Geometry Format
 
@@ -149,7 +164,9 @@ interface the Library page reads through, and in pieces of 512 KB, because the
 server in front of Jupyter refuses a request body of a megabyte. It is bounded:
 the destination has to be a single file directly inside `common/models`, and an
 address that already holds a file is left alone, so a geometry produced outside
-the browser is never replaced.
+the browser is never replaced. The pieces are written to `model.glb.part`, and
+the file takes its real name only when the last piece has landed, so a write cut
+short by a closed tab leaves nothing the page would try to load.
 
 It can fail without anything visible going wrong, and that is by design: a model
 that is not stored simply converts again. The one case worth knowing about is a
@@ -158,15 +175,19 @@ workspace with Jupyter XSRF protection enabled, where the token sits in an
 failure is written to the browser console.
 
 Producing the `.glb` outside the browser is still the better route for a large
-model, and it is what the administrator documentation recommends. This is what
-happens when nobody has.
+model, with `ifc-to-glb` from the
+[ifc-utils](https://github.com/INTO-CPS-Association/ifc-utils) repository, and
+it is what the administrator documentation recommends. This is what happens
+when nobody has.
 
 ### Recording Where an Artifact Came From
 
-Every derived file records the hash of the source it was made from and the name
-and version of the converter that made it. The manifest schema refuses a
-manifest without them. This is what makes a stale artifact detectable instead
-of merely wrong.
+The manifest records the hash of the source it was made from and the name and
+version of the converter that made it, and the schema refuses a manifest
+without them. This is what makes a stale manifest detectable instead of merely
+wrong. A `.glb` does not carry that record yet, whether `ifc-to-glb` wrote it
+or the browser did: it names the tool that generated it and nothing about the
+source.
 
 ## Live Readings
 

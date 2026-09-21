@@ -29,8 +29,9 @@ visit instead of loading a stored file. The refusal is written to the browser
 console, so the two cases can be told apart.
 
 If you enable XSRF protection on a workspace and want conversions to persist,
-produce the `.glb` files outside the browser instead, which is the better route
-for a large model in any case.
+produce the `.glb` files outside the browser instead, with `ifc-to-glb` from the
+[ifc-utils](https://github.com/INTO-CPS-Association/ifc-utils) repository. That
+is the better route for a large model in any case.
 
 ## Notes
 

@@ -43,10 +43,10 @@ Most client dependencies are permissively licensed and are declared in
 `client/package.json`. Two are named here because their terms carry obligations
 that a redistributor has to meet, and a name in a lock file is not a notice.
 
-| Software Package                                                                | Usage     | Licence  |
-| :------------------------------------------------------------------------------ | :-------- | :------- |
+| Software Package                                                                             | Usage     | Licence                             |
+| :------------------------------------------------------------------------------------------- | :-------- | :---------------------------------- |
 | [@into-cps-association/bim-kit](https://www.npmjs.com/package/@into-cps-association/bim-kit) | mandatory | INTO-CPS Association Public Licence |
-| [web-ifc](https://github.com/ThatOpen/engine_web-ifc)                           | mandatory | MPL 2.0  |
+| [web-ifc](https://github.com/ThatOpen/engine_web-ifc)                                        | mandatory | MPL 2.0                             |
 
 `web-ifc` is the IFC geometry kernel, and it reaches the client through
 `bim-kit`, which embeds its WebAssembly build so that a deployment serves no
@@ -60,7 +60,7 @@ the INTO-CPS Licence. What it requires of anyone shipping a build:
   one `client/yarn.lock` resolves for `web-ifc`.
 - **The notice has to travel with the artifact.** Embedding the kernel inside a
   JavaScript chunk makes its provenance invisible in the built output, which is
-  the reason this table exists rather than a pointer to `package.json`.
+  the reason this table exists instead of a pointer to `package.json`.
 - **A modified MPL file stays MPL.** `bim-kit` uses `web-ifc` as a dependency and
   does not fork it, so the boundary is the package boundary.
 

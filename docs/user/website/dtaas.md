@@ -111,7 +111,7 @@ downloaded, created, and modified on this page.
 **Digital Twins**: For management of digital twins. A Jupyter Lab page is presented
 from which digital twins can be executed.
 
-**Automation**: The digital twins and library previews in one place. These
+**Automation**: The Library Page and the Digital Twins Page in one place. These
 features demonstrate the DTaaS integration with GitLab CI/CD and are
 experimental.
 
@@ -238,18 +238,16 @@ files with external git repositories.
 
 > **URL**: `https://intocps.org/workbench`
 
-The **workbench** page provides links to six integrated tools:
+The **workbench** page provides links to four integrated tools:
 
 * Desktop
 * VS Code
 * Jupyter Lab
 * Jupyter Notebook
-* Library page preview
-* Digital Twins page preview
 
 ![Workbench](images/workbench.png)
 
-Screenshots of the pages opened by clicking on first four icons are shown:
+Screenshots of the pages opened by clicking on these icons are shown:
 
 ![Workbench Tools](images/workbench_tools.png)
 

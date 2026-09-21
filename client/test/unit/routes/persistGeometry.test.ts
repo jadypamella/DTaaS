@@ -175,8 +175,29 @@ describe('uploadGeometry', () => {
 
     await uploadGeometry(libraryUrl, ifcPath, large);
 
-    const bodies = writesOf(fetchMock).map(([, init]) => JSON.parse(init.body));
+    const writes = writesOf(fetchMock);
+    const bodies = writes.map(([, init]) => JSON.parse(init.body));
     expect(bodies.map((body) => body.chunk)).toEqual([1, 2, -1]);
+
+    // Every piece goes to the partial name, and the model takes its real name
+    // only after the last one, so a write that stops half way is never listed.
+    writes.forEach(([url]) => {
+      expect(url).toBe(
+        'http://localhost/jane/api/contents/common/models/Substation.glb.part',
+      );
+    });
+    const renames = fetchMock.mock.calls.filter(
+      ([, init]) => init.method === 'PATCH',
+    );
+    expect(renames).toHaveLength(1);
+    expect(renames[0][0]).toBe(
+      'http://localhost/jane/api/contents/common/models/Substation.glb.part',
+    );
+    expect(JSON.parse(renames[0][1].body)).toEqual({
+      path: 'common/models/Substation.glb',
+    });
+    const { calls } = fetchMock.mock;
+    expect(calls[calls.length - 1][1].method).toBe('PATCH');
 
     // Every piece is a file in base64, and together they are the model. The
     // sizes matter: a lost or repeated piece would still pass a count check.
@@ -203,12 +224,19 @@ describe('uploadGeometry', () => {
     const writes = writesOf(fetchMock);
     expect(writes).toHaveLength(1);
     expect(JSON.parse(writes[0][1].body).chunk).toBeUndefined();
+    // One request is written whole or not at all, so it goes to the real name.
+    expect(writes[0][0]).toBe(
+      'http://localhost/jane/api/contents/common/models/Substation.glb',
+    );
+    expect(
+      fetchMock.mock.calls.filter(([, init]) => init.method === 'PATCH'),
+    ).toHaveLength(0);
   });
 
-  it('stops at the piece the server refuses', async () => {
-    // The file is left incomplete either way. Carrying on would write the rest
-    // of a model whose middle is missing, and the listing would then show a
-    // geometry that loads as a broken file instead of no geometry at all.
+  it('stops at the piece the server refuses, and never names the model', async () => {
+    // Carrying on would write the rest of a model whose middle is missing.
+    // What was written stays under the partial name, which the viewer does not
+    // list, so the model keeps converting instead of loading a broken file.
     let put = 0;
     const fetchMock = jest.fn();
     fetchMock.mockImplementation(
@@ -228,6 +256,31 @@ describe('uploadGeometry', () => {
       uploadGeometry(libraryUrl, ifcPath, new Uint8Array(CHUNK_BYTES * 3)),
     ).rejects.toThrow(/HTTP 413/);
     expect(writesOf(fetchMock)).toHaveLength(2);
+    expect(
+      fetchMock.mock.calls.filter(([, init]) => init.method === 'PATCH'),
+    ).toHaveLength(0);
+  });
+
+  it('rejects when the rename is refused, leaving the file at the real name alone', async () => {
+    // Jupyter answers 409 when a file took the real name while the pieces were
+    // being written. That file stays, as the existence check would have left it.
+    const fetchMock = jest.fn();
+    fetchMock.mockImplementation(
+      (_url: unknown, init: { method?: string } = {}) => {
+        if (init.method === 'GET') {
+          return Promise.resolve({ ok: false, status: 404 });
+        }
+        if (init.method === 'PATCH') {
+          return Promise.resolve({ ok: false, status: 409 });
+        }
+        return Promise.resolve({ ok: true, status: 201 });
+      },
+    );
+    globalThis.fetch = fetchMock;
+
+    await expect(
+      uploadGeometry(libraryUrl, ifcPath, new Uint8Array(CHUNK_BYTES + 1)),
+    ).rejects.toThrow(/Substation\.glb\.part returned HTTP 409/);
   });
 
   it('refuses a destination outside the models directory', async () => {

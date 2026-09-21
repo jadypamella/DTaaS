@@ -29,6 +29,17 @@
  * which is the contents manager a Jupyter server uses unless it is configured
  * otherwise. The pieces have to arrive in order, since the server appends as
  * each one lands, so they are sent one after another and never together.
+ *
+ * Why the pieces go to another name first
+ * ---------------------------------------
+ * A write in pieces can stop part way: the tab is closed, the page is left, the
+ * connection drops. Pieces written straight to the `.glb` then leave half a
+ * model under the name the viewer lists as converted, which fails to load, and
+ * which the existence check below then protects from ever being rewritten. So
+ * the pieces go to `<model>.glb.part`, which the viewer does not list, and the
+ * file takes its real name only once the last piece has landed. An interrupted
+ * write leaves a `.part` behind, and the next write starts it again from
+ * piece one, which truncates it.
  */
 
 import { contentsUrl } from '@into-cps-association/bim-kit/react';
@@ -36,6 +47,7 @@ import MODELS_DIRECTORY from 'route/bim/library';
 
 const IFC_SUFFIX = '.ifc';
 const GEOMETRY_SUFFIX = '.glb';
+const PARTIAL_SUFFIX = '.part';
 
 /**
  * How many bytes of the model go in one request.
@@ -170,7 +182,7 @@ export async function uploadGeometry(
     return;
   }
 
-  const put = async (bytes: Uint8Array, chunk?: number) => {
+  const put = async (target: string, bytes: Uint8Array, chunk?: number) => {
     const body: Record<string, unknown> = {
       type: 'file',
       format: 'base64',
@@ -179,25 +191,28 @@ export async function uploadGeometry(
     if (chunk !== undefined) {
       body.chunk = chunk;
     }
-    const response = await fetch(url, {
+    const response = await fetch(target, {
       method: 'PUT',
       credentials: 'include',
       headers,
       body: JSON.stringify(body),
     });
     if (!response.ok) {
-      throw new Error(`${url} returned HTTP ${response.status}`);
+      throw new Error(`${target} returned HTTP ${response.status}`);
     }
   };
 
   // A model that fits in one request is sent as one, without a chunk number.
   // Chunk one truncates the file, and nothing would then mark the end, so the
   // server would never run the hooks that follow a completed save.
+  // One request is written whole or not at all, so it needs no other name.
   if (glb.length <= CHUNK_BYTES) {
-    await put(glb);
+    await put(url, glb);
     return;
   }
 
+  const partialPath = `${path}${PARTIAL_SUFFIX}`;
+  const partialUrl = contentsUrl(libraryUrl, partialPath);
   const pieces = Math.ceil(glb.length / CHUNK_BYTES);
   for (let index = 0; index < pieces; index += 1) {
     const slice = glb.subarray(index * CHUNK_BYTES, (index + 1) * CHUNK_BYTES);
@@ -206,6 +221,19 @@ export async function uploadGeometry(
     const chunk = index === pieces - 1 ? -1 : index + 1;
     // The server appends as each piece lands, so they cannot be sent together.
     // eslint-disable-next-line no-await-in-loop
-    await put(slice, chunk);
+    await put(partialUrl, slice, chunk);
+  }
+
+  // The rename is what makes the model count as converted. The server refuses
+  // it with 409 when a file took the real name in the meantime, which leaves
+  // that file alone, as the existence check above does.
+  const renamed = await fetch(partialUrl, {
+    method: 'PATCH',
+    credentials: 'include',
+    headers,
+    body: JSON.stringify({ path }),
+  });
+  if (!renamed.ok) {
+    throw new Error(`${partialUrl} returned HTTP ${renamed.status}`);
   }
 }

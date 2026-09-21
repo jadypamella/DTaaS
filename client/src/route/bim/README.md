@@ -216,6 +216,7 @@ lives. What bounds it:
   that function.
 - An address that already holds a file is left alone, so a geometry produced
   outside the browser is never replaced by one produced inside it.
+- A model sent in pieces is written to `<model>.glb.part` and takes its real name only once the last piece has landed, so a write that stops half way, a closed tab or a dropped connection, never shows as a converted model that cannot be read.
 - The request is credentialed, and the address it goes to is assembled by the
   application from its own deployment configuration and the signed-in user name.
   That is what makes sending credentials to it acceptable.

@@ -52,18 +52,6 @@ const GEOMETRY_SUFFIX = '.glb';
 export const CHUNK_BYTES = 512 * 1024;
 
 /**
- * The largest conversion that is written back.
- *
- * `toBase64` builds the whole encoded string before any of it is sent, so the
- * tab holds the bytes and a string a third larger at the same time. Past this
- * the browser is the constraint and not the server, and a conversion that is
- * not stored costs a reconversion, which is what this feature saves. It is not
- * a security boundary: the bytes were produced in this tab from a file the
- * library already held.
- */
-export const MAX_GEOMETRY_BYTES = 64 * 1024 * 1024;
-
-/**
  * Refuse any path that is not a file directly inside the models directory.
  *
  * The path is derived from a listing the workspace returned, so it is not user
@@ -166,11 +154,6 @@ export async function uploadGeometry(
   const path = geometryPathFor(ifcPath);
   if (!isWritableGeometryPath(path)) {
     throw new Error(`${path} is not a file in ${MODELS_DIRECTORY}`);
-  }
-  if (glb.byteLength > MAX_GEOMETRY_BYTES) {
-    throw new Error(
-      `the conversion is ${glb.byteLength} bytes, over the ${MAX_GEOMETRY_BYTES} limit`,
-    );
   }
 
   // `libraryUrl` is assembled by the application from its own deployment

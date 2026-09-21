@@ -256,8 +256,6 @@ lives. What bounds it:
   leading slash. The path comes from a listing the workspace returned, so it is
   not user input today, and the check is there for the day something else feeds
   that function.
-- The write is refused above 64 MB. The encoder builds the whole base64 string
-  before sending, so past that the tab is the constraint.
 - An address that already holds a file is left alone, so a geometry produced
   outside the browser is never replaced by one produced inside it.
 - The request is credentialed, and the address it goes to is assembled by the

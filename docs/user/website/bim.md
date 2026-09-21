@@ -147,9 +147,9 @@ opened the model first.
 The write goes through the workspace's own Jupyter Contents API, the same
 interface the Library page reads through, and in pieces of 512 KB, because the
 server in front of Jupyter refuses a request body of a megabyte. It is bounded:
-the destination has to be a single file directly inside `common/models`, a
-conversion over 64 MB is not written, and an address that already holds a file
-is left alone, so a geometry produced outside the browser is never replaced.
+the destination has to be a single file directly inside `common/models`, and an
+address that already holds a file is left alone, so a geometry produced outside
+the browser is never replaced.
 
 It can fail without anything visible going wrong, and that is by design: a model
 that is not stored simply converts again. The one case worth knowing about is a

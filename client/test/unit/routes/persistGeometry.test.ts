@@ -12,7 +12,6 @@
 
 import {
   CHUNK_BYTES,
-  MAX_GEOMETRY_BYTES,
   geometryPathFor,
   isWritableGeometryPath,
   readXsrfToken,
@@ -239,20 +238,6 @@ describe('uploadGeometry', () => {
       uploadGeometry(libraryUrl, '../../etc/passwd.ifc', glb),
     ).rejects.toThrow(/not a file in common\/models/);
     // Nothing is sent at all, so a refused destination is never even read.
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
-
-  it('refuses a conversion over the size limit', async () => {
-    const fetchMock = jest.fn();
-    globalThis.fetch = fetchMock;
-
-    // The encoder builds the whole base64 string before sending, so the limit
-    // is about this tab's memory and not about the server.
-    const huge = { byteLength: MAX_GEOMETRY_BYTES + 1 } as Uint8Array;
-
-    await expect(uploadGeometry(libraryUrl, ifcPath, huge)).rejects.toThrow(
-      /over the/,
-    );
     expect(fetchMock).not.toHaveBeenCalled();
   });
 

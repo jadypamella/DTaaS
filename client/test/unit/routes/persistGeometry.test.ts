@@ -17,6 +17,7 @@ import {
   readXsrfToken,
   toBase64,
   uploadGeometry,
+  UploadError,
 } from 'route/bim/persistGeometry';
 
 describe('geometryPathFor', () => {
@@ -103,26 +104,63 @@ describe('uploadGeometry', () => {
   const libraryUrl = 'http://localhost/jane/';
   const ifcPath = 'common/models/Substation.ifc';
   const glb = new Uint8Array([1, 2, 3, 4]);
+  const target =
+    'http://localhost/jane/api/contents/common/models/Substation.glb';
+  const partial = `${target}.part`;
+
+  type Answer = { ok: boolean; status: number };
+  type Call = [
+    string,
+    {
+      method: string;
+      body?: string;
+      signal?: AbortSignal;
+      credentials?: string;
+      headers?: Record<string, string>;
+    },
+  ];
 
   /**
-   * A workspace where nothing sits at the destination yet.
+   * A workspace that answers each method its own way.
    *
-   * The upload asks before it writes, so a mock answering every request the
-   * same way would report the file as already there and skip the write.
+   * By default nothing sits at the destination (the check gets 404) and every
+   * write, rename and delete is accepted. A test overrides only the method it
+   * is about. `put` may be a function of the piece number, for a server that
+   * refuses one piece and not the others.
    */
-  const emptyWorkspace = (write: object = { ok: true, status: 201 }) => {
-    const mock = jest.fn();
-    mock.mockImplementation((_url: unknown, init: { method?: string } = {}) =>
-      Promise.resolve(
-        init.method === 'GET' ? { ok: false, status: 404 } : write,
-      ),
+  const workspace = (
+    answers: {
+      get?: Answer | Error;
+      put?: Answer | ((index: number) => Answer);
+      patch?: Answer;
+    } = {},
+  ) => {
+    let puts = 0;
+    const mock = jest.fn(
+      (_url: string, init: { method: string }): Promise<Answer> => {
+        if (init.method === 'GET') {
+          const get = answers.get ?? { ok: false, status: 404 };
+          return get instanceof Error
+            ? Promise.reject(get)
+            : Promise.resolve(get);
+        }
+        if (init.method === 'PUT') {
+          puts += 1;
+          const put = answers.put ?? { ok: true, status: 201 };
+          return Promise.resolve(typeof put === 'function' ? put(puts) : put);
+        }
+        if (init.method === 'PATCH') {
+          return Promise.resolve(answers.patch ?? { ok: true, status: 200 });
+        }
+        return Promise.resolve({ ok: true, status: 204 });
+      },
     );
+    globalThis.fetch = mock as unknown as typeof fetch;
     return mock;
   };
 
-  /** Only the writes, since every call now starts with the existence check. */
-  const writesOf = (mock: jest.Mock) =>
-    mock.mock.calls.filter(([, init]) => init.method === 'PUT');
+  const callsOf = (mock: jest.Mock, method: string) =>
+    (mock.mock.calls as Call[]).filter(([, init]) => init.method === method);
 
   afterEach(() => {
     document.cookie = '_xsrf=; expires=Thu, 01 Jan 1970 00:00:00 GMT';
@@ -132,37 +170,57 @@ describe('uploadGeometry', () => {
   it('writes without the XSRF header when the workspace sets no token', async () => {
     // The workspace image this runs against sets no _xsrf cookie and accepts
     // the write regardless, so a missing token must not block the write.
-    const fetchMock = emptyWorkspace();
-    globalThis.fetch = fetchMock;
+    const mock = workspace();
 
     await uploadGeometry(libraryUrl, ifcPath, glb);
 
-    const writes = writesOf(fetchMock);
-    expect(writes).toHaveLength(1);
-    expect(writes[0][1].headers['X-XSRFToken']).toBeUndefined();
+    const [write] = callsOf(mock, 'PUT');
+    expect(write[1].headers?.['X-XSRFToken']).toBeUndefined();
   });
 
-  it('puts the geometry to the contents API with the token and a base64 body', async () => {
+  it('puts the geometry to the partial name with the token and a base64 body', async () => {
     document.cookie = '_xsrf=tok';
-    const fetchMock = emptyWorkspace();
-    globalThis.fetch = fetchMock;
+    const mock = workspace();
 
     await uploadGeometry(libraryUrl, ifcPath, glb);
 
-    const writes = writesOf(fetchMock);
+    const writes = callsOf(mock, 'PUT');
     expect(writes).toHaveLength(1);
     const [url, init] = writes[0];
-    expect(url).toBe(
-      'http://localhost/jane/api/contents/common/models/Substation.glb',
-    );
+    expect(url).toBe(partial);
     expect(init.credentials).toBe('include');
-    expect(init.headers['X-XSRFToken']).toBe('tok');
-    expect(init.headers['Content-Type']).toBe('application/json');
-    expect(JSON.parse(init.body)).toEqual({
+    expect(init.headers?.['X-XSRFToken']).toBe('tok');
+    expect(init.headers?.['Content-Type']).toBe('application/json');
+    expect(JSON.parse(init.body as string)).toEqual({
       type: 'file',
       format: 'base64',
       content: toBase64(glb),
     });
+  });
+
+  it('names the file only after the bytes are written, for a model of any size', async () => {
+    // A model that fits in one request goes the same way as a large one, so a
+    // file that appears between the check and the write is not replaced.
+    const mock = workspace();
+
+    await uploadGeometry(libraryUrl, ifcPath, glb);
+
+    const methods = (mock.mock.calls as Call[]).map(([, init]) => init.method);
+    expect(methods).toEqual(['GET', 'PUT', 'PATCH']);
+    const [rename] = callsOf(mock, 'PATCH');
+    expect(rename[0]).toBe(partial);
+    expect(JSON.parse(rename[1].body as string)).toEqual({
+      path: 'common/models/Substation.glb',
+    });
+  });
+
+  it('asks whether the file exists without downloading it', async () => {
+    const mock = workspace();
+
+    await uploadGeometry(libraryUrl, ifcPath, glb);
+
+    const [check] = callsOf(mock, 'GET');
+    expect(check[0]).toBe(`${target}?content=0`);
   });
 
   it('sends a large model in ordered pieces, with the last one marked', async () => {
@@ -170,164 +228,193 @@ describe('uploadGeometry', () => {
     // one request the workspace closes the connection part way through, which
     // is what left a large model converting again on every open.
     const large = new Uint8Array(CHUNK_BYTES * 2 + 512).fill(7);
-    const fetchMock = emptyWorkspace();
-    globalThis.fetch = fetchMock;
+    const mock = workspace();
 
     await uploadGeometry(libraryUrl, ifcPath, large);
 
-    const writes = writesOf(fetchMock);
-    const bodies = writes.map(([, init]) => JSON.parse(init.body));
+    const writes = callsOf(mock, 'PUT');
+    const bodies = writes.map(([, init]) => JSON.parse(init.body as string));
     expect(bodies.map((body) => body.chunk)).toEqual([1, 2, -1]);
+    writes.forEach(([url]) => expect(url).toBe(partial));
 
-    // Every piece goes to the partial name, and the model takes its real name
-    // only after the last one, so a write that stops half way is never listed.
-    writes.forEach(([url]) => {
-      expect(url).toBe(
-        'http://localhost/jane/api/contents/common/models/Substation.glb.part',
-      );
-    });
-    const renames = fetchMock.mock.calls.filter(
-      ([, init]) => init.method === 'PATCH',
-    );
-    expect(renames).toHaveLength(1);
-    expect(renames[0][0]).toBe(
-      'http://localhost/jane/api/contents/common/models/Substation.glb.part',
-    );
-    expect(JSON.parse(renames[0][1].body)).toEqual({
-      path: 'common/models/Substation.glb',
-    });
-    const { calls } = fetchMock.mock;
-    expect(calls[calls.length - 1][1].method).toBe('PATCH');
-
-    // Every piece is a file in base64, and together they are the model. The
-    // sizes matter: a lost or repeated piece would still pass a count check.
-    bodies.forEach((body) => {
-      expect(body.type).toBe('file');
-      expect(body.format).toBe('base64');
-    });
+    // The sizes matter: a lost or repeated piece would still pass a count check.
     const sent = bodies.reduce(
       (total, body) => total + atob(body.content).length,
       0,
     );
     expect(sent).toBe(large.length);
     expect(atob(bodies[2].content)).toHaveLength(512);
+
+    const { calls } = mock.mock;
+    expect((calls[calls.length - 1] as Call)[1].method).toBe('PATCH');
   });
 
   it('sends a model that fits in one request without a chunk number', async () => {
     // Chunk one truncates the file and nothing would mark the end, so the
     // server would never run the hooks that follow a completed save.
-    const fetchMock = emptyWorkspace();
-    globalThis.fetch = fetchMock;
+    const mock = workspace();
 
     await uploadGeometry(libraryUrl, ifcPath, new Uint8Array(CHUNK_BYTES));
 
-    const writes = writesOf(fetchMock);
+    const writes = callsOf(mock, 'PUT');
     expect(writes).toHaveLength(1);
-    expect(JSON.parse(writes[0][1].body).chunk).toBeUndefined();
-    // One request is written whole or not at all, so it goes to the real name.
-    expect(writes[0][0]).toBe(
-      'http://localhost/jane/api/contents/common/models/Substation.glb',
-    );
-    expect(
-      fetchMock.mock.calls.filter(([, init]) => init.method === 'PATCH'),
-    ).toHaveLength(0);
+    expect(JSON.parse(writes[0][1].body as string).chunk).toBeUndefined();
   });
 
-  it('stops at the piece the server refuses, and never names the model', async () => {
-    // Carrying on would write the rest of a model whose middle is missing.
-    // What was written stays under the partial name, which the viewer does not
-    // list, so the model keeps converting instead of loading a broken file.
-    let put = 0;
-    const fetchMock = jest.fn();
-    fetchMock.mockImplementation(
-      (_url: unknown, init: { method?: string } = {}) => {
-        if (init.method === 'GET') {
-          return Promise.resolve({ ok: false, status: 404 });
-        }
-        put += 1;
-        return Promise.resolve(
-          put === 1 ? { ok: true, status: 201 } : { ok: false, status: 413 },
-        );
-      },
-    );
-    globalThis.fetch = fetchMock;
+  it('tries once more in pieces of half the size when a piece is too large', async () => {
+    // The piece size was measured against one deployment. A stricter proxy
+    // answers 413 to the first piece, and the write starts over smaller.
+    const large = new Uint8Array(CHUNK_BYTES + 1).fill(3);
+    const mock = workspace({
+      put: (index) =>
+        index === 1 ? { ok: false, status: 413 } : { ok: true, status: 201 },
+    });
 
-    await expect(
-      uploadGeometry(libraryUrl, ifcPath, new Uint8Array(CHUNK_BYTES * 3)),
-    ).rejects.toThrow(/HTTP 413/);
-    expect(writesOf(fetchMock)).toHaveLength(2);
-    expect(
-      fetchMock.mock.calls.filter(([, init]) => init.method === 'PATCH'),
-    ).toHaveLength(0);
+    await uploadGeometry(libraryUrl, ifcPath, large);
+
+    const bodies = callsOf(mock, 'PUT').map(([, init]) =>
+      JSON.parse(init.body as string),
+    );
+    // The refused piece, then three of half the size.
+    expect(bodies.map((body) => body.chunk)).toEqual([1, 1, 2, -1]);
+    expect(atob(bodies[1].content)).toHaveLength(CHUNK_BYTES / 2);
+    expect(callsOf(mock, 'PATCH')).toHaveLength(1);
   });
 
-  it('rejects when the rename is refused, leaving the file at the real name alone', async () => {
-    // Jupyter answers 409 when a file took the real name while the pieces were
-    // being written. That file stays, as the existence check would have left it.
-    const fetchMock = jest.fn();
-    fetchMock.mockImplementation(
-      (_url: unknown, init: { method?: string } = {}) => {
-        if (init.method === 'GET') {
-          return Promise.resolve({ ok: false, status: 404 });
-        }
-        if (init.method === 'PATCH') {
-          return Promise.resolve({ ok: false, status: 409 });
-        }
-        return Promise.resolve({ ok: true, status: 201 });
-      },
-    );
-    globalThis.fetch = fetchMock;
+  it('gives up when the smaller pieces are refused as well', async () => {
+    const mock = workspace({ put: { ok: false, status: 413 } });
 
     await expect(
       uploadGeometry(libraryUrl, ifcPath, new Uint8Array(CHUNK_BYTES + 1)),
-    ).rejects.toThrow(/Substation\.glb\.part returned HTTP 409/);
+    ).rejects.toThrow(/HTTP 413/);
+    // One try at each size, and nothing named.
+    expect(callsOf(mock, 'PUT')).toHaveLength(2);
+    expect(callsOf(mock, 'PATCH')).toHaveLength(0);
+  });
+
+  it('stops at the piece the server refuses, deletes the partial file and never names it', async () => {
+    // Carrying on would write the rest of a model whose middle is missing.
+    const mock = workspace({
+      put: (index) =>
+        index === 1 ? { ok: true, status: 201 } : { ok: false, status: 500 },
+    });
+
+    await expect(
+      uploadGeometry(libraryUrl, ifcPath, new Uint8Array(CHUNK_BYTES * 3)),
+    ).rejects.toThrow(UploadError);
+    expect(callsOf(mock, 'PUT')).toHaveLength(2);
+    expect(callsOf(mock, 'PATCH')).toHaveLength(0);
+    const deletes = callsOf(mock, 'DELETE');
+    expect(deletes).toHaveLength(1);
+    expect(deletes[0][0]).toBe(partial);
+  });
+
+  it('rejects when the rename is refused, and deletes the partial file', async () => {
+    // Jupyter answers 409 when a file took the real name while the bytes were
+    // being written. That file stays, and the partial one goes.
+    const mock = workspace({ patch: { ok: false, status: 409 } });
+
+    await expect(uploadGeometry(libraryUrl, ifcPath, glb)).rejects.toThrow(
+      /Substation\.glb\.part returned HTTP 409/,
+    );
+    expect(callsOf(mock, 'DELETE')).toHaveLength(1);
+  });
+
+  it('still rejects with the write error when deleting the partial file fails', async () => {
+    const mock = jest.fn((_url: string, init: { method: string }) => {
+      if (init.method === 'GET')
+        return Promise.resolve({ ok: false, status: 404 });
+      if (init.method === 'DELETE')
+        return Promise.reject(new TypeError('down'));
+      return Promise.resolve({ ok: false, status: 403 });
+    });
+    globalThis.fetch = mock as unknown as typeof fetch;
+
+    await expect(uploadGeometry(libraryUrl, ifcPath, glb)).rejects.toThrow(
+      /HTTP 403/,
+    );
+  });
+
+  it('stops when the page is left, and deletes the partial file without the signal', async () => {
+    const controller = new AbortController();
+    const mock = jest.fn(
+      (_url: string, init: { method: string; signal?: AbortSignal }) => {
+        if (init.method === 'GET') {
+          return Promise.resolve({ ok: false, status: 404 });
+        }
+        if (init.method === 'PUT') {
+          // The person leaves while the first piece is in flight.
+          controller.abort();
+          return Promise.reject(new DOMException('aborted', 'AbortError'));
+        }
+        return Promise.resolve({ ok: true, status: 204 });
+      },
+    );
+    globalThis.fetch = mock as unknown as typeof fetch;
+
+    await expect(
+      uploadGeometry(
+        libraryUrl,
+        ifcPath,
+        new Uint8Array(CHUNK_BYTES * 2),
+        controller.signal,
+      ),
+    ).rejects.toThrow('aborted');
+
+    const calls = mock.mock.calls as Call[];
+    // Every request of the write carries the signal. The clean-up does not,
+    // since the signal is already aborted and it would never be sent.
+    calls
+      .filter(([, init]) => init.method !== 'DELETE')
+      .forEach(([, init]) => expect(init.signal).toBe(controller.signal));
+    const deletes = calls.filter(([, init]) => init.method === 'DELETE');
+    expect(deletes).toHaveLength(1);
+    expect(deletes[0][1].signal).toBeUndefined();
+    expect(calls.filter(([, init]) => init.method === 'PUT')).toHaveLength(1);
   });
 
   it('refuses a destination outside the models directory', async () => {
-    const fetchMock = jest.fn();
-    globalThis.fetch = fetchMock;
+    const mock = workspace();
 
     await expect(
       uploadGeometry(libraryUrl, '../../etc/passwd.ifc', glb),
     ).rejects.toThrow(/not a file in common\/models/);
     // Nothing is sent at all, so a refused destination is never even read.
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(mock).not.toHaveBeenCalled();
   });
 
   it('leaves a geometry that is already there alone', async () => {
     // A .glb produced outside the browser is the better artifact, and the
     // administrator documentation tells you to make one for a large model.
-    const fetchMock = jest.fn();
-    fetchMock.mockResolvedValue({ ok: true, status: 200 });
-    globalThis.fetch = fetchMock;
+    const mock = workspace({ get: { ok: true, status: 200 } });
 
     await uploadGeometry(libraryUrl, ifcPath, glb);
 
-    expect(writesOf(fetchMock)).toHaveLength(0);
-    expect(fetchMock.mock.calls[0][1].method).toBe('GET');
+    expect(mock).toHaveBeenCalledTimes(1);
   });
 
-  it('writes when the existence check itself fails', async () => {
-    // A network failure on the check says nothing about the file. The caller
-    // only asks when it believes there is nothing to lose, so writing is the
-    // better guess than skipping.
-    const fetchMock = jest.fn();
-    fetchMock.mockImplementation(
-      (_url: unknown, init: { method?: string } = {}) =>
-        init.method === 'GET'
-          ? Promise.reject(new TypeError('network down'))
-          : Promise.resolve({ ok: true, status: 201 }),
-    );
-    globalThis.fetch = fetchMock;
+  it('writes nothing when the existence check fails', async () => {
+    // A failed check says nothing about the file, and the file it protects may
+    // have been made by hand. Skipping costs a reconversion. Writing could
+    // replace that file.
+    const mock = workspace({ get: new TypeError('network down') });
 
     await uploadGeometry(libraryUrl, ifcPath, glb);
 
-    expect(writesOf(fetchMock)).toHaveLength(1);
+    expect(mock).toHaveBeenCalledTimes(1);
+  });
+
+  it('writes nothing when the check gets any answer but not found', async () => {
+    const mock = workspace({ get: { ok: false, status: 500 } });
+
+    await uploadGeometry(libraryUrl, ifcPath, glb);
+
+    expect(mock).toHaveBeenCalledTimes(1);
   });
 
   it('rejects when the server refuses the write', async () => {
     document.cookie = '_xsrf=tok';
-    globalThis.fetch = emptyWorkspace({ ok: false, status: 403 });
+    workspace({ put: { ok: false, status: 403 } });
 
     await expect(uploadGeometry(libraryUrl, ifcPath, glb)).rejects.toThrow(
       /HTTP 403/,

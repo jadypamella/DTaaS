@@ -164,9 +164,17 @@ interface the Library page reads through, and in pieces of 512 KB, because the
 server in front of Jupyter refuses a request body of a megabyte. It is bounded:
 the destination has to be a single file directly inside `common/models`, and an
 address that already holds a file is left alone, so a geometry produced outside
-the browser is never replaced. The pieces are written to `model.glb.part`, and
-the file takes its real name only when the last piece has landed, so a write cut
-short by a closed tab leaves nothing the page would try to load.
+the browser is never replaced. When the page cannot tell whether a file is
+there, it does not write.
+
+The bytes are written to `model.glb.part`, and the file takes its real name only
+when the last piece has landed. A write that fails, or that stops because the
+person left the page, deletes its `model.glb.part`. One that could not be
+deleted, because the tab was closed, can be seen in JupyterLab beside the model.
+It is safe to delete, and the next conversion of that model replaces it anyway.
+
+If the server in front of the workspace refuses a piece as too large, the write
+starts over once in pieces of half the size.
 
 It can fail without anything visible going wrong, and that is by design: a model
 that is not stored simply converts again. The one case worth knowing about is a

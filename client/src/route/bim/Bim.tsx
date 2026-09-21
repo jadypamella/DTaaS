@@ -13,7 +13,7 @@
  * `README.md` beside it describes the rest.
  */
 
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useAuth } from 'react-oidc-context';
 import { useSelector } from 'react-redux';
 import { Box, CircularProgress, Link, Typography } from '@mui/material';
@@ -51,9 +51,25 @@ function Bim() {
   // enabled sets an HttpOnly `_xsrf` cookie, which script cannot read, so the
   // header is omitted and every write is refused. Without this line that
   // deployment looks exactly like one where the feature works.
+  //
+  // A write still running when the person leaves the page is stopped, and the
+  // model converts again on the next visit. The ref holds the controller for
+  // the page as it is mounted now, which the effect replaces on every mount.
+  const leaving = useRef(new AbortController());
+  useEffect(() => {
+    const controller = new AbortController();
+    leaving.current = controller;
+    return () => controller.abort();
+  }, []);
+
   const persistGeometry = useCallback(
     (model: BimModel, glb: Uint8Array) =>
-      uploadGeometry(libraryUrl, model.ifcPath, glb).catch((error: Error) => {
+      uploadGeometry(
+        libraryUrl,
+        model.ifcPath,
+        glb,
+        leaving.current.signal,
+      ).catch((error: Error) => {
         // eslint-disable-next-line no-console
         console.debug('The conversion was not stored.', model.ifcPath, error);
         throw error;

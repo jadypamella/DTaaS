@@ -151,11 +151,18 @@ lives. What bounds it:
   not user input today, and the check is there for the day something else feeds
   that function.
 - An address that already holds a file is left alone, so a geometry produced
-  outside the browser is never replaced by one produced inside it.
-- A model sent in pieces is written to `<model>.glb.part` and takes its real
-  name only once the last piece has landed, so a write that stops half way, a
-  closed tab or a dropped connection, never shows as a converted model that
-  cannot be read.
+  outside the browser is never replaced by one produced inside it. The check
+  fails closed: only a 404 lets the write go ahead, and a check that fails
+  outright skips it.
+- Every write, of one piece or many, goes to `<model>.glb.part` and takes its
+  real name with a rename once the last piece has landed. The server refuses
+  that rename when the real name was taken in the meantime, so a write that
+  stops half way never shows as a converted model that cannot be read, and a
+  file that appeared during the write is not replaced.
+- A write that fails deletes its `.part`. Leaving the page aborts the write,
+  and the `.part` is deleted as well.
+- A piece the server in front of the workspace refuses as too large (413) makes
+  the write start over once in pieces of half the size.
 - The request is credentialed, and the address it goes to is assembled by the
   application from its own deployment configuration and the signed-in user name.
   That is what makes sending credentials to it acceptable.

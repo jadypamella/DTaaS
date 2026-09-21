@@ -30,16 +30,18 @@
  * otherwise. The pieces have to arrive in order, since the server appends as
  * each one lands, so they are sent one after another and never together.
  *
- * Why the pieces go to another name first
- * ---------------------------------------
+ * Why the bytes go to another name first
+ * --------------------------------------
  * A write in pieces can stop part way: the tab is closed, the page is left, the
  * connection drops. Pieces written straight to the `.glb` then leave half a
  * model under the name the viewer lists as converted, which fails to load, and
  * which the existence check below then protects from ever being rewritten. So
- * the pieces go to `<model>.glb.part`, which the viewer does not list, and the
- * file takes its real name only once the last piece has landed. An interrupted
- * write leaves a `.part` behind, and the next write starts it again from
- * piece one, which truncates it.
+ * every write, one piece or many, goes to `<model>.glb.part`, which the viewer
+ * does not list, and the file takes its real name with a rename once the last
+ * piece has landed. The server refuses that rename when the real name is
+ * already taken, so a file that appeared while the pieces were being written
+ * is not replaced either. A write that fails deletes its `.part`. One the
+ * browser could not delete, a closed tab, is truncated by the next write.
  */
 
 import { contentsUrl } from '@into-cps-association/bim-kit/react';
@@ -60,8 +62,20 @@ const PARTIAL_SUFFIX = '.part';
  *
  * Measured against the running workspace and not assumed, because the limit
  * belongs to the server in front of Jupyter and is not in its configuration.
+ * A stricter proxy answers 413, and the write is then tried once more in pieces
+ * of half this size, so one deployment's limit is not a constant for all.
  */
 export const CHUNK_BYTES = 512 * 1024;
+
+/** A write the server refused, with the status it refused it with. */
+export class UploadError extends Error {
+  constructor(
+    readonly url: string,
+    readonly status: number,
+  ) {
+    super(`${url} returned HTTP ${status}`);
+  }
+}
 
 /**
  * Refuse any path that is not a file directly inside the models directory.
@@ -127,33 +141,59 @@ export function toBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
-/** Whether the workspace already holds a file at this address. */
-async function exists(url: string): Promise<boolean> {
+/**
+ * Whether nothing sits at this address yet.
+ *
+ * Only a 404 says so. Any other answer, and a request that fails outright, is
+ * taken to mean a file may be there, because the file this protects is one an
+ * administrator produced by hand. Guessing wrong that way costs a reconversion
+ * next time. Guessing wrong the other way would replace that file.
+ *
+ * `content=0` asks for the file's details without its bytes, so checking a
+ * 70 MB model does not download it.
+ */
+async function isFree(url: string, signal?: AbortSignal): Promise<boolean> {
   try {
-    const response = await fetch(url, {
+    const response = await fetch(`${url}?content=0`, {
       method: 'GET',
       credentials: 'include',
+      signal,
     });
-    return response.ok;
+    return response.status === 404;
   } catch {
-    // A failure here says nothing about the file. Writing is the better guess,
-    // since the caller only asks when it believes there is nothing to lose.
     return false;
+  }
+}
+
+/**
+ * Delete a partial file a failed write left behind.
+ *
+ * Sent without the caller's signal, because a write that stopped since the page
+ * was left should still not leave several megabytes nobody can see in the
+ * library. It is best effort: a `.part` that stays is truncated by the next
+ * write to the same model.
+ */
+async function discard(url: string, headers: Record<string, string>) {
+  try {
+    await fetch(url, { method: 'DELETE', credentials: 'include', headers });
+  } catch {
+    // Nothing more to do. The next write starts the file over.
   }
 }
 
 /**
  * Write the geometry beside its model, so it is not reconverted next time.
  *
- * Rejects when the server does not accept the write. The caller treats a
- * rejection as a missed optimisation and not an error: the model already drew
- * from the in-browser conversion, and it will convert again next time instead
- * of loading a file that was never written.
+ * Rejects when the server does not accept the write, and when `signal` aborts
+ * it. The caller treats a rejection as a missed optimisation and not an error:
+ * the model already drew from the in-browser conversion, and it will convert
+ * again next time instead of loading a file that was never written.
  */
 export async function uploadGeometry(
   libraryUrl: string,
   ifcPath: string,
   glb: Uint8Array,
+  signal?: AbortSignal,
 ): Promise<void> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -178,11 +218,13 @@ export async function uploadGeometry(
   // The package only asks for a conversion to be stored when it found none, so
   // this repeats that check against the server at the moment of writing, where
   // the listing this decision came from may be minutes old.
-  if (await exists(url)) {
+  if (!(await isFree(url, signal))) {
     return;
   }
 
-  const put = async (target: string, bytes: Uint8Array, chunk?: number) => {
+  const partialUrl = contentsUrl(libraryUrl, `${path}${PARTIAL_SUFFIX}`);
+
+  const put = async (bytes: Uint8Array, chunk?: number) => {
     const body: Record<string, unknown> = {
       type: 'file',
       format: 'base64',
@@ -191,49 +233,63 @@ export async function uploadGeometry(
     if (chunk !== undefined) {
       body.chunk = chunk;
     }
-    const response = await fetch(target, {
+    const response = await fetch(partialUrl, {
       method: 'PUT',
       credentials: 'include',
       headers,
       body: JSON.stringify(body),
+      signal,
     });
     if (!response.ok) {
-      throw new Error(`${target} returned HTTP ${response.status}`);
+      throw new UploadError(partialUrl, response.status);
     }
   };
 
-  // A model that fits in one request is sent as one, without a chunk number.
-  // Chunk one truncates the file, and nothing would then mark the end, so the
-  // server would never run the hooks that follow a completed save.
-  // One request is written whole or not at all, so it needs no other name.
-  if (glb.length <= CHUNK_BYTES) {
-    await put(url, glb);
-    return;
-  }
+  const send = async (pieceBytes: number) => {
+    // A model that fits in one request is sent as one, without a chunk number.
+    // Chunk one truncates the file, and nothing would then mark the end, so the
+    // server would never run the hooks that follow a completed save.
+    if (glb.length <= pieceBytes) {
+      await put(glb);
+      return;
+    }
+    const pieces = Math.ceil(glb.length / pieceBytes);
+    for (let index = 0; index < pieces; index += 1) {
+      const slice = glb.subarray(index * pieceBytes, (index + 1) * pieceBytes);
+      // Counted from one, with the last one marked -1, which is how the server
+      // knows the file is complete.
+      const chunk = index === pieces - 1 ? -1 : index + 1;
+      // The server appends as each piece lands, so they cannot be sent together.
+      // eslint-disable-next-line no-await-in-loop
+      await put(slice, chunk);
+    }
+  };
 
-  const partialPath = `${path}${PARTIAL_SUFFIX}`;
-  const partialUrl = contentsUrl(libraryUrl, partialPath);
-  const pieces = Math.ceil(glb.length / CHUNK_BYTES);
-  for (let index = 0; index < pieces; index += 1) {
-    const slice = glb.subarray(index * CHUNK_BYTES, (index + 1) * CHUNK_BYTES);
-    // Counted from one, with the last one marked -1, which is how the server
-    // knows the file is complete.
-    const chunk = index === pieces - 1 ? -1 : index + 1;
-    // The server appends as each piece lands, so they cannot be sent together.
-    // eslint-disable-next-line no-await-in-loop
-    await put(partialUrl, slice, chunk);
-  }
+  try {
+    try {
+      await send(CHUNK_BYTES);
+    } catch (error) {
+      // Once, at half the size. Starting over is safe, since the first piece
+      // truncates the partial file.
+      if (!(error instanceof UploadError) || error.status !== 413) throw error;
+      await send(CHUNK_BYTES / 2);
+    }
 
-  // The rename is what makes the model count as converted. The server refuses
-  // it with 409 when a file took the real name in the meantime, which leaves
-  // that file alone, as the existence check above does.
-  const renamed = await fetch(partialUrl, {
-    method: 'PATCH',
-    credentials: 'include',
-    headers,
-    body: JSON.stringify({ path }),
-  });
-  if (!renamed.ok) {
-    throw new Error(`${partialUrl} returned HTTP ${renamed.status}`);
+    // The rename is what makes the model count as converted. The server refuses
+    // it with 409 when a file took the real name in the meantime, which leaves
+    // that file alone, as the existence check above does.
+    const renamed = await fetch(partialUrl, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers,
+      body: JSON.stringify({ path }),
+      signal,
+    });
+    if (!renamed.ok) {
+      throw new UploadError(partialUrl, renamed.status);
+    }
+  } catch (error) {
+    await discard(partialUrl, headers);
+    throw error;
   }
 }

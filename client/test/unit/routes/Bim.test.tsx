@@ -64,7 +64,20 @@ describe('Bim', () => {
       mockURLforLIB,
       'common/models/Substation.ifc',
       expect.any(Uint8Array),
+      expect.any(AbortSignal),
     );
+  });
+
+  it('stops a write still running when the page is left', async () => {
+    (uploadGeometry as jest.Mock).mockResolvedValue(undefined);
+    const { unmount } = renderWithRouter(<Bim />, { route: '/private' });
+    await userEvent.click(screen.getByTestId('persist-geometry'));
+    const signal = (uploadGeometry as jest.Mock).mock
+      .calls[0][3] as AbortSignal;
+
+    expect(signal.aborted).toBe(false);
+    unmount();
+    expect(signal.aborted).toBe(true);
   });
 
   it('reports a refused write instead of losing it', async () => {

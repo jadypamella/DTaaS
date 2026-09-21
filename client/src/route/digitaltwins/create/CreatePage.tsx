@@ -1,5 +1,6 @@
 import { Dispatch, SetStateAction, useState } from 'react';
-import { Box, Button, TextField, Tooltip } from '@mui/material';
+import { Box, Button, InputAdornment, TextField, Tooltip } from '@mui/material';
+import DriveFileRenameOutlineIcon from '@mui/icons-material/DriveFileRenameOutline';
 import { useSelector } from 'react-redux';
 import Editor from 'route/digitaltwins/editor/Editor';
 import CreateDialogs from 'route/digitaltwins/create/CreateDialogs';
@@ -22,22 +23,32 @@ function DigitalTwinNameInput({
   readonly value: string;
   readonly onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }) {
-  // The same shape as the search field on the Execute tab: three hundred pixels
-  // wide and the small size. Its caller places it. It used to carry a wrapper
-  // that was a third of the page wide and pushed its contents to the end, so
-  // the first field a person fills was the furthest thing from where they read,
-  // and it was taller than every other control on the page.
+  // Built the way the search field on the Manage and Execute tabs is, so the
+  // first control on each tab looks the same: three hundred pixels wide, the
+  // small size, an icon at the start and the name as the placeholder. The icon
+  // means rename and not search, because this names a twin and finds nothing.
+  //
+  // A placeholder disappears once a person types, so the field carries its
+  // name for assistive technology as well.
   return (
     <TextField
       fullWidth
       size="small"
       variant="outlined"
-      label="Digital Twin Name"
+      placeholder="Digital Twin Name"
       value={value}
       onChange={onChange}
       sx={{ maxWidth: 300 }}
       slotProps={{
+        input: {
+          startAdornment: (
+            <InputAdornment position="start">
+              <DriveFileRenameOutlineIcon fontSize="small" />
+            </InputAdornment>
+          ),
+        },
         htmlInput: {
+          'aria-label': 'Digital Twin Name',
           'data-logger-element': 'input',
           'data-logger-label': 'Digital twin name input',
           'data-logger-capture-value': 'true',
@@ -157,7 +168,11 @@ function CreatePage({
         />
       </Box>
 
-      <Box sx={{ width: '100%', marginTop: -2 }}>
+      {/* The same gap the Manage tab leaves between its search field and the
+          cards. This used to be a negative margin, which pulled the editor up
+          when the name field sat beside the tabs. With the field on a line of
+          its own it pulled the buttons into the field instead. */}
+      <Box sx={{ width: '100%', marginTop: 2 }}>
         <Editor
           tab="create"
           fileName={fileName}

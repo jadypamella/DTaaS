@@ -46,17 +46,22 @@ test.describe('Building Models', () => {
     await expect(page.getByText('common/models')).toBeVisible();
   });
 
-  test('says what it found instead of leaving the list blank', async ({
+  test('says what it found instead of leaving the page blank', async ({
     page,
   }) => {
     // Either outcome is correct and the page has to distinguish them: a
-    // library with no IFC file says so, and a library with one lists it.
+    // library with no IFC file says so, and a library with one offers the
+    // models in a menu headed IFC Model and says how many there are.
     await page.goto('./bim');
 
     const empty = page.getByText('No IFC file is in the shared library yet.');
-    const list = page.getByRole('list');
+    const picker = page.getByRole('combobox', { name: 'IFC Model' });
+    const count = page.getByText(/^\d+ IFC models? in the shared library\.$/);
 
-    await expect(empty.or(list).first()).toBeVisible();
+    await expect(empty.or(picker).first()).toBeVisible();
+    if (await picker.isVisible()) {
+      await expect(count).toBeVisible();
+    }
   });
 
   test('is behind authentication', async ({ page, context }) => {

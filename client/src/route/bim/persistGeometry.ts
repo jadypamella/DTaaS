@@ -31,10 +31,8 @@
  * each one lands, so they are sent one after another and never together.
  */
 
-import {
-  MODELS_DIRECTORY,
-  contentsUrl,
-} from '@into-cps-association/bim-kit/react';
+import { contentsUrl } from '@into-cps-association/bim-kit/react';
+import MODELS_DIRECTORY from 'route/bim/library';
 
 const IFC_SUFFIX = '.ifc';
 const GEOMETRY_SUFFIX = '.glb';

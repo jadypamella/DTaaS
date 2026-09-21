@@ -28,6 +28,7 @@ import { useURLforLIB } from 'util/envUtil';
 import { useGetAndSetUsername } from 'util/auth/Authentication';
 import { RootState } from 'store/store';
 import { uploadGeometry } from 'route/bim/persistGeometry';
+import MODELS_DIRECTORY from 'route/bim/library';
 
 /** One line saying what the page is for, in the frame every page shares. */
 const DESCRIPTION =
@@ -100,12 +101,15 @@ function Bim() {
         <Typography variant="body2" sx={{ mb: 2 }}>
           Models are uploaded to the shared library under{' '}
           <Link component={RouterLink} to="/library">
-            common/models
+            {MODELS_DIRECTORY}
           </Link>
           .
         </Typography>
+        {/* The folder is DTaaS's to name, so it is handed to the viewer rather
+            than left to a default inside the package. */}
         <BuildingModels
           libraryUrl={libraryUrl}
+          directory={MODELS_DIRECTORY}
           onPersistGeometry={persistGeometry}
         />
       </PageShell>

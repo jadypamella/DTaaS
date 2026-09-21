@@ -13,16 +13,22 @@
 
 export function BuildingModels({
   libraryUrl,
+  directory,
   onPersistGeometry,
 }: {
   libraryUrl?: string;
+  directory?: string;
   onPersistGeometry?: (
     model: { ifcPath: string },
     glb: Uint8Array,
   ) => Promise<void>;
 }) {
   return (
-    <div data-testid="building-models" data-library-url={libraryUrl}>
+    <div
+      data-testid="building-models"
+      data-library-url={libraryUrl}
+      data-directory={directory}
+    >
       {/* The real viewer calls this once, after it has converted a model that
           had no geometry beside it. A button is how a test reaches the same
           call without a renderer. */}
@@ -60,7 +66,4 @@ export function contentsUrl(libraryUrl: string, path: string) {
   return `${root}api/contents/${encoded}`;
 }
 
-/** The directory the upload guard checks a destination against. */
-export const MODELS_DIRECTORY = 'common/models';
-
-export default { BuildingModels, contentsUrl, MODELS_DIRECTORY };
+export default { BuildingModels, contentsUrl };

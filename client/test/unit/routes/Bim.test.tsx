@@ -86,6 +86,25 @@ describe('Bim', () => {
     debug.mockRestore();
   });
 
+  it('tells the viewer which folder holds the models', () => {
+    // The folder is a DTaaS convention, so DTaaS names it and the viewer is
+    // told, instead of the package carrying DTaaS's layout as a default.
+    renderWithRouter(<Bim />, { route: '/private' });
+
+    expect(screen.getByTestId('building-models')).toHaveAttribute(
+      'data-directory',
+      'common/models',
+    );
+  });
+
+  it('names the same folder to the person uploading', () => {
+    renderWithRouter(<Bim />, { route: '/private' });
+
+    expect(
+      screen.getByRole('link', { name: 'common/models' }),
+    ).toBeInTheDocument();
+  });
+
   it('renders the viewer', () => {
     renderWithRouter(<Bim />, { route: '/private' });
 

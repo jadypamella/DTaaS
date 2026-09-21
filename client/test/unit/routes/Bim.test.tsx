@@ -142,7 +142,7 @@ describe('the bim route', () => {
     expect(routes.some((route) => route.path === 'bim')).toBe(true);
   });
 
-  it('loads the page on demand rather than in the entry chunk', async () => {
+  it('loads the page on demand instead of in the entry chunk', async () => {
     // The route holds a lazy component, so its element renders the Suspense
     // fallback first and the page only after the chunk resolves. This is what
     // keeps the renderer and the geometry kernel out of the entry bundle, and

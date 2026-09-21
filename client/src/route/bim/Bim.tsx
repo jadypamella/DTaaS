@@ -1,12 +1,12 @@
 /**
  * The Building Models route.
  *
- * This file is the whole of what DTaaS knows about BIM. Loading a model,
- * drawing it and colouring it by sensor reading all live in
- * `@into-cps-association/bim-kit`, so a change to any of them is a
- * version of that package and never a pull request against DTaaS. What stays
- * here is the wiring only this application can supply: its layout, and the
- * address of the signed-in user's library.
+ * Loading a model, drawing it and colouring it by sensor reading all live in
+ * `@into-cps-association/bim-kit`, so a change to any of them is a version of
+ * that package and never a pull request against DTaaS. What stays here is the
+ * wiring only this application can supply: its layout, the address of the
+ * signed-in user's library, the folder models live in (`library.ts`), and the
+ * write that stores a converted model (`persistGeometry.ts`).
  *
  * That address comes from the deployment's own configuration through
  * `useURLforLIB`, so this file carries no host, no path and no user name.
@@ -105,8 +105,8 @@ function Bim() {
           </Link>
           .
         </Typography>
-        {/* The folder is DTaaS's to name, so it is handed to the viewer rather
-            than left to a default inside the package. */}
+        {/* The folder is DTaaS's to name, so it is handed to the viewer and
+            not left to a default inside the package. */}
         <BuildingModels
           libraryUrl={libraryUrl}
           directory={MODELS_DIRECTORY}

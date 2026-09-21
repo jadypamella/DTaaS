@@ -37,8 +37,9 @@ interface AutomationCard {
 }
 
 // Each card says what its page does, the way the workbench cards do, so the
-// destination is readable without opening it. They are numbered because the
-// order matters: a selection made on the first is what the second starts from.
+// destination is readable without opening it. Each description starts with its
+// step, because the order matters: a selection made on the first page is what
+// the second starts from.
 const cards: AutomationCard[] = [
   {
     name: 'Library Page',

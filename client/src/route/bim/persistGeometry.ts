@@ -58,7 +58,7 @@ const PARTIAL_SUFFIX = '.part';
  * 512 KB it is 683 KB, which the workspace accepts, and the first size measured
  * to fail was a 768 KB piece, whose body is exactly 1024 KB.
  *
- * Measured against the running workspace rather than assumed, because the limit
+ * Measured against the running workspace and not assumed, because the limit
  * belongs to the server in front of Jupyter and is not in its configuration.
  */
 export const CHUNK_BYTES = 512 * 1024;

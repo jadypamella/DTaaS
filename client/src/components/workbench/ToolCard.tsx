@@ -68,7 +68,6 @@ function actionArea(
 
 function ToolCard({ name, link, description, icon }: Readonly<ToolCardProps>) {
   const usable = isSafeHttpUrl(link);
-  const opensElsewhere = usable;
 
   const body = (
     <>
@@ -104,7 +103,7 @@ function ToolCard({ name, link, description, icon }: Readonly<ToolCardProps>) {
         </Typography>
         {/* Marks the card as leaving the page, so it is on the cards that do.
             It is decorative because the link text already carries the name. */}
-        {opensElsewhere && (
+        {usable && (
           <OpenInNewIcon
             aria-hidden="true"
             sx={{ fontSize: '0.875rem', color: 'text.secondary' }}

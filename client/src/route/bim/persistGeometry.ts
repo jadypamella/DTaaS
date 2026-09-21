@@ -94,7 +94,7 @@ export function geometryPathFor(ifcPath: string): string {
  * instead of blocking the write on its absence.
  */
 export function readXsrfToken(): string | undefined {
-  const match = document.cookie.match(/(?:^|;\s*)_xsrf=([^;]+)/);
+  const match = /(?:^|;\s*)_xsrf=([^;]+)/.exec(document.cookie);
   return match ? decodeURIComponent(match[1]) : undefined;
 }
 
@@ -102,7 +102,7 @@ export function readXsrfToken(): string | undefined {
  * Base64 of the bytes, built in chunks.
  *
  * `btoa` takes a string, and turning a large byte array into one with
- * `String.fromCharCode(...bytes)` spreads every byte as an argument, which
+ * `String.fromCodePoint(...bytes)` spreads every byte as an argument, which
  * overflows the call stack on a real model. The chunk keeps each call small.
  */
 export function toBase64(bytes: Uint8Array): string {
@@ -110,7 +110,7 @@ export function toBase64(bytes: Uint8Array): string {
   let binary = '';
   for (let index = 0; index < bytes.length; index += CHUNK) {
     const slice = bytes.subarray(index, index + CHUNK);
-    binary += String.fromCharCode(...slice);
+    binary += String.fromCodePoint(...slice);
   }
   return btoa(binary);
 }

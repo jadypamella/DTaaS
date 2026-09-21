@@ -66,12 +66,7 @@ function actionArea(
   );
 }
 
-function ToolCard({
-  name,
-  link,
-  description,
-  icon,
-}: Readonly<ToolCardProps>) {
+function ToolCard({ name, link, description, icon }: Readonly<ToolCardProps>) {
   const usable = isSafeHttpUrl(link);
   const opensElsewhere = usable;
 

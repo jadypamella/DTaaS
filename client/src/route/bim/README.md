@@ -105,24 +105,7 @@ through, so a sensor colours its own room and not the office next door.
 
 ## Running It Locally
 
-Three steps, and all three stop being needed once the packages are published and
-an image carries the route.
-
-**Build the package.** It is not on a registry yet, so `package.json` points
-at an archive in `client/vendor/`, which is not versioned. From a clone of
-[ifc-utils](https://github.com/INTO-CPS-Association/ifc-utils):
-
-```sh
-npm install
-npm run build --workspace packages/bim-kit
-cd packages/bim-kit && npm pack --pack-destination <client>/vendor
-```
-
-`npm pack` writes `into-cps-association-<name>-<version>.tgz`. Rename each to
-the name `client/package.json` asks for, which is where the versions in use are
-recorded. The version belongs in the filename: yarn caches a `file:` dependency
-under its filename, so rebuilding without changing the name leaves the old code
-installed and the change appears not to have happened.
+Two steps, and both stop being needed once an image carries the route. The viewer comes from `@into-cps-association/bim-kit` on npmjs, pinned to an exact version in `client/package.json`, so `yarn install` fetches it like any other dependency.
 
 **Build the client.**
 
@@ -172,31 +155,6 @@ curl -s -o /dev/null -w '%{http_code} %{content_type}\n' \
 being served by the client instead of by the workspace. The name to use is the
 last segment of the profile URL the identity provider returns, which is what the
 client itself uses to build the address.
-
-## What Would Go In a Pull Request, and What Would Not
-
-Some of what this branch carries exists only to run the route here, beside a
-published image, from packages that are not on a registry yet. Those files are
-local tooling and are not part of the contribution, in the same way a
-development Dockerfile is not.
-
-Goes in:
-
-| File                                                                              | Why                                                                |
-| --------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| `client/src/route/bim/Bim.tsx` and this README                                    | The route                                                          |
-| `client/src/routes.tsx`, `client/src/page/MenuItems.tsx`                          | The route and the menu entry                                       |
-| `client/jest.config.json`                                                         | The viewer maps to a stub, or seven suites stop loading            |
-| `client/test/__mocks__/bimViewerMock.tsx`, `client/test/unit/routes/Bim.test.tsx` | That stub, and the route's tests                                   |
-| `client/package.json`                                                             | The two packages, `three` and `@types/three`, as registry versions |
-
-Stays out:
-
-| File                                                                          | Why it is local only                                                                                      |
-| ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| The `resolutions` entry and the `file:` paths in `client/package.json`        | Exist because the packages are not published. In a pull request those two dependencies are version ranges |
-| The `.gitignore` lines for `client/vendor/` and `docker-compose.override.yml` | Housekeeping for running here, not part of the feature                                                    |
-| The section above about `DEFAULT_USER`                                        | A deployment note, not route documentation                                                                |
 
 ## Against the Criteria in Issue 1762
 

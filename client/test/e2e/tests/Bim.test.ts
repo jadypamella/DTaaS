@@ -27,9 +27,9 @@ test.describe('Building Models', () => {
   test('is reachable from the menu and renders its own heading', async ({
     page,
   }) => {
-    await page
-      .locator('div[role="button"]:has-text("Building Models")')
-      .click();
+    // The menu names the route Buildings, and the page heads itself
+    // Building Models.
+    await page.getByRole('link', { name: 'Buildings' }).click();
 
     await expect(page).toHaveURL('./bim');
     await expect(
@@ -63,13 +63,19 @@ test.describe('Building Models', () => {
       await expect(count).toBeVisible();
     }
   });
+});
 
-  test('is behind authentication', async ({ page, context }) => {
+test.describe('Building Models without a session', () => {
+  test('sends the visitor to sign in', async ({ page, baseURL }) => {
     // The route reads the signed-in user's own library, so it must not be
-    // reachable without a session.
-    await context.clearCookies();
+    // reachable without a session. The session lives in sessionStorage and is
+    // restored only by openAuthenticatedApp, so a page opened directly has
+    // none, the same way the authentication suite checks the other routes.
     await page.goto('./bim');
 
-    await expect(page).not.toHaveURL(/.*bim/);
+    await expect(page).toHaveURL(baseURL?.replace(/\/$/, '') ?? './');
+    await expect(page.getByRole('button', { name: 'Sign In' })).toBeVisible({
+      timeout: 10000,
+    });
   });
 });

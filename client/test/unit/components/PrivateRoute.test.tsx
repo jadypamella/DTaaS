@@ -122,7 +122,10 @@ describe('PrivateRoute', () => {
     expect(stored).not.toContain('example_token');
   });
 
-  test('throws when authenticated but user is null', () => {
+  test('sends the person to sign in when a session has no user', () => {
+    // react-oidc-context should not report this state. If it ever does, the
+    // route has no token for its children, so it redirects instead of throwing
+    // during render and taking the page down with it.
     (useAuth as jest.Mock).mockReturnValue({
       isLoading: false,
       error: null,
@@ -130,13 +133,14 @@ describe('PrivateRoute', () => {
       user: null,
     });
 
-    expect(() =>
-      renderWithRouter(
-        <PrivateRoute>
-          <TestComponent />
-        </PrivateRoute>,
-        { route: '/private' },
-      ),
-    ).toThrow('Access token was not available...');
+    renderWithRouter(
+      <PrivateRoute>
+        <TestComponent />
+      </PrivateRoute>,
+      { route: '/private' },
+    );
+
+    expect(screen.queryByText('Test Component')).not.toBeInTheDocument();
+    expect(getAccessToken()).toBe('');
   });
 });

@@ -16,7 +16,11 @@ function getRouteState(auth: ReturnType<typeof useAuth>): RouteState {
   const states: Array<[() => boolean, RouteState]> = [
     [() => auth.isLoading, 'loading'],
     [() => Boolean(auth.error), 'error'],
-    [() => !auth.isAuthenticated, 'unauthenticated'],
+    // A session with no user should not happen in react-oidc-context. If it
+    // ever does, the route has no token to hand its children, so it sends the
+    // person to sign in again instead of rendering a page whose every request
+    // would be refused.
+    [() => !auth.isAuthenticated || !auth.user, 'unauthenticated'],
   ];
   return states.find(([matches]) => matches())?.[1] ?? 'authenticated';
 }
@@ -25,14 +29,14 @@ function storeAccessToken(
   isAuthenticated: boolean,
   user: ReturnType<typeof useAuth>['user'],
 ): void {
-  // Clear rather than return, so a session that ends, or a move to a public
-  // route, does not leave the last token in the module for the life of the
-  // document.
-  if (!isAuthenticated) {
+  // Cleared and not simply left alone, so a session that ends, or a move to a
+  // public route, does not leave the last token in the module for the life of
+  // the document. A session with no user clears it too, and the route state
+  // above turns that into the sign-in redirect.
+  if (!isAuthenticated || !user) {
     clearAccessToken();
     return;
   }
-  if (!user) throw new Error('Access token was not available...');
   setAccessToken(user.access_token);
 }
 

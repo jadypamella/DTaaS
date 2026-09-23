@@ -11,12 +11,10 @@ import { openAuthenticatedApp } from 'test/e2e/setup/appSettings';
  * URL proves nothing. Each test below asserts on something only this page
  * renders.
  *
- * The viewer itself is not asserted on. It draws to a canvas, and a WebGL
- * canvas has no accessible content to query. What is checked is everything
- * around it: that the route is reachable when signed in, that it names the
- * library directory it reads from, and that it states what it found there.
- * The drawing is covered by the package's own tests, which run without a
- * browser.
+ * The drawing itself is checked only as far as a browser shows it: a canvas
+ * appears and no error takes its place. A WebGL canvas has no accessible
+ * content to query, so what the drawing contains is covered by the package's
+ * own tests, which run without a browser.
  */
 test.describe('Building Models', () => {
   test.beforeEach(async ({ page }) => {
@@ -58,10 +56,46 @@ test.describe('Building Models', () => {
     const picker = page.getByRole('combobox', { name: 'IFC Model' });
     const count = page.getByText(/^\d+ IFC models? in the shared library\.$/);
 
-    await expect(empty.or(picker).first()).toBeVisible();
+    // The list comes from the workspace over the network, which takes longer
+    // than the default five seconds on a busy run.
+    await expect(empty.or(picker).first()).toBeVisible({ timeout: 30000 });
     if (await picker.isVisible()) {
       await expect(count).toBeVisible();
     }
+  });
+});
+
+test.describe('Building Models, drawing a model', () => {
+  test.beforeEach(async ({ page }) => {
+    await openAuthenticatedApp(page);
+    await expect(page).toHaveURL(/.*Library/);
+  });
+
+  test('draws a model that has already been converted', async ({ page }) => {
+    // A converted model loads its .glb, so it draws in seconds. A model that
+    // is not converted yet is converted in the browser, which for a building
+    // takes minutes, so this test only opens a converted one and says so when
+    // the library holds none.
+    await page.goto('./bim');
+    const picker = page.getByRole('combobox', { name: 'IFC Model' });
+    const empty = page.getByText('No IFC file is in the shared library yet.');
+    // The list comes from the workspace over the network, which takes longer
+    // than the default five seconds on a busy run.
+    await expect(empty.or(picker).first()).toBeVisible({ timeout: 30000 });
+    test.skip(!(await picker.isVisible()), 'The library holds no IFC model.');
+
+    await picker.click();
+    const converted = page.getByRole('option').filter({ hasText: 'Converted' });
+    test.skip(
+      (await converted.count()) === 0,
+      'No model in the library has been converted yet.',
+    );
+    await converted.first().click();
+
+    await expect(page.locator('canvas').first()).toBeVisible({
+      timeout: 30000,
+    });
+    await expect(page.getByText(/could not be read/)).toHaveCount(0);
   });
 });
 

@@ -78,7 +78,7 @@ describe('Sidebar', () => {
     });
   });
 
-  it('should call handleAddFileClick when Add new file button is clicked', async () => {
+  it('should call handleAddFileClick when Add New File button is clicked', async () => {
     const handleAddFileClickSpy = jest.spyOn(
       SidebarFunctions,
       'handleAddFileClick',
@@ -87,7 +87,7 @@ describe('Sidebar', () => {
     await renderSidebar('create', 'mockedDTName');
 
     await waitFor(() => {
-      const addFileButton = screen.getByText('Add new file');
+      const addFileButton = screen.getByText('Add New File');
       addFileButton.click();
     });
 

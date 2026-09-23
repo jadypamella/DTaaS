@@ -103,13 +103,20 @@ of the page reveals the menu.
 
 ![Menu](images/menu.png)
 
-Three menu items are available:
+Five menu items are available:
 
 **Library**: For management of reusable library assets. Files can be uploaded,
 downloaded, created, and modified on this page.
 
 **Digital Twins**: For management of digital twins. A Jupyter Lab page is presented
 from which digital twins can be executed.
+
+**Automation**: The Library Page and the Digital Twins Page in one place. These
+features demonstrate the DTaaS integration with GitLab CI/CD and are
+experimental.
+
+**Buildings**: Draws the IFC building models in the user's library, and colours
+them by the readings their sensors report.
 
 **Workbench**: Not all digital twins can be managed within Jupyter Lab.
 Additional tools are available on this page.
@@ -231,28 +238,26 @@ files with external git repositories.
 
 > **URL**: `https://intocps.org/workbench`
 
-The **workbench** page provides links to six integrated tools:
+The **workbench** page provides links to four integrated tools:
 
 * Desktop
 * VS Code
 * Jupyter Lab
 * Jupyter Notebook
-* Library page preview
-* Digital Twins page preview
 
 ![Workbench](images/workbench.png)
 
-Screenshots of the pages opened by clicking on first four icons are shown:
+Screenshots of the pages opened by clicking on these icons are shown:
 
 ![Workbench Tools](images/workbench_tools.png)
 
 The hyperlinks open in new browser tabs.
 
-The **workbench** also has two links to DevOps-based implementation of
+The **Automation** page has two links to DevOps-based implementation of
 composable digital twins.
 
-* Library Page Preview
-* Digital Twins Page Preview
+* Library Page
+* Digital Twins Page
 
 ### Library Preview Page
 

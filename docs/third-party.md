@@ -37,6 +37,33 @@ use the following tools.
 | [JupyterLab](https://github.com/jupyterlab/jupyterlab)              | optional  | BSD 3-Clause                                                        |
 | [MicroK8s](https://github.com/canonical/microk8s)                   | optional  | Apache 2.0                                                          |
 
+## Client Packages With Copyleft Terms
+
+Most client dependencies are permissively licensed and are declared in
+`client/package.json`. Two are named here because their terms carry obligations
+that a redistributor has to meet, and a name in a lock file is not a notice.
+
+| Software Package                                                                             | Usage     | Licence                             |
+| :------------------------------------------------------------------------------------------- | :-------- | :---------------------------------- |
+| [@into-cps-association/bim-kit](https://www.npmjs.com/package/@into-cps-association/bim-kit) | mandatory | INTO-CPS Association Public Licence |
+| [web-ifc](https://github.com/ThatOpen/engine_web-ifc)                                        | mandatory | MPL 2.0                             |
+
+`web-ifc` is the IFC geometry kernel, and it reaches the client through
+`bim-kit`, which embeds its WebAssembly build so that a deployment serves no
+extra file. Embedding it does not change its terms.
+
+MPL 2.0 is file-level copyleft and is compatible with redistributing DTaaS under
+the INTO-CPS Licence. What it requires of anyone shipping a build:
+
+- **The source of the MPL-covered files has to be available** to whoever
+  receives that build. Upstream is linked above, and the version in use is the
+  one `client/yarn.lock` resolves for `web-ifc`.
+- **The notice has to travel with the artifact.** Embedding the kernel inside a
+  JavaScript chunk makes its provenance invisible in the built output, which is
+  the reason this table exists instead of a pointer to `package.json`.
+- **A modified MPL file stays MPL.** `bim-kit` uses `web-ifc` as a dependency and
+  does not fork it, so the boundary is the package boundary.
+
 ## Package Dependencies
 
 Additional third-party dependencies for client, servers, CLI, and tooling are

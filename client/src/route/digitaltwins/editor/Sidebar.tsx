@@ -97,7 +97,7 @@ const Sidebar = ({
             data-logger-element="button"
             data-logger-label="Add new file"
           >
-            Add new file
+            Add New File
           </Button>
 
           {setOpenDeleteFileDialog && setOpenChangeFileNameDialog && (

@@ -47,8 +47,13 @@ test.describe('Menu Links from first page (Layout)', () => {
       await page.getByRole('link', { name: link.text }).click();
       const popup = await popupPromise;
       await popup.waitForLoadState('load', { timeout: 30000 });
-      const popupUrl = popup.url();
-      expect(popupUrl).toContain(link.url.replace('./', ''));
+      // A server may answer a tool address with its canonical form, which adds
+      // a slash before the query: tools/vnc?path= arrives as tools/vnc/?path=.
+      // It is the same address, so neither side carries that slash here.
+      const canonical = (url: string) => url.replace(/\/(?=\?|$)/, '');
+      expect(canonical(popup.url())).toContain(
+        canonical(link.url.replace('./', '')),
+      );
       await popup.close();
       return Promise.resolve();
     }, Promise.resolve());

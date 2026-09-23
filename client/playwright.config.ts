@@ -22,6 +22,12 @@ export default defineConfig({
     : {
         command: 'yarn start',
         url: BASE_URI,
+        // A website already answering at that address is used as it is. Without
+        // this the run stops with "is already used", which is what a developer
+        // meets when the address in test/.env is served by something else, such
+        // as a local deployment of the whole platform. On CI nothing is running
+        // yet, so the server is always started there.
+        reuseExistingServer: !process.env.CI,
       },
   retries: process.env.CI ? 0 : 1, // Disable retries on Github actions for now as setup always fails
   timeout: 90 * 1000, // 90 seconds per test

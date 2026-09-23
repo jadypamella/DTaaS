@@ -129,7 +129,10 @@ Replace _your_username_ and _your_password_ with the actual username and passwor
 for the selected on-premise GitLab account (`gitlab.intocps.org`) or test account.
 If you do not have a secondary gitlab runner, you can use the same one for both.
 They will be the ones used in the e2e tests for executing twins and taking
-measurements.
+measurements. Both tags have to name a runner that exists and is online: the
+example values above are only examples. A tag no runner carries leaves the
+pipeline of that task queued, and the measurement test waits for a status that
+never arrives, which reads as a slow test and is a missing runner.
 
 The following is an example `test/.env` for a setup where tests run on
 the developer machine and the DTaaS client application runs on a remote
@@ -162,6 +165,33 @@ yarn test:e2e
 The `yarn test:e2e` command launches the test runner and the DTaaS client application,
 then executes all end-to-end tests.
 The client application is terminated at the end of end-to-end tests.
+
+## Testing against a local deployment of the whole platform
+
+The two setups above serve the website alone. The Library and Building Models
+pages also read the signed-in user's workspace, which is served by the same
+origin as the website in a deployment, so those pages only work when the whole
+platform runs, and not when the website runs on its own at `localhost:4000`.
+
+In that setup the website is already served, by the deployment, so the tests
+must not start a second one. Point `test/.env` at the address the deployment
+answers on and run the external-server command:
+
+```bash
+REACT_APP_URL='http://localhost:8081'
+```
+
+```bash
+yarn test:e2e:ext
+```
+
+`yarn test:e2e` would start its own preview at that same address. It now reuses
+a website already answering there instead of stopping with
+`http://localhost:8081/ is already used`, but the command that says what is
+meant is `yarn test:e2e:ext`.
+
+The GitLab OAuth application needs the deployment's address among its callback
+URLs, in the same way the two setups above need theirs.
 
 ## Testing on the integration server
 

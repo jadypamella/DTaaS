@@ -60,10 +60,11 @@ test.describe('Concurrent Execution', () => {
   test('should start multiple executions concurrently and view logs', async ({
     page,
   }) => {
-    // Find the Hello world Digital Twin card
+    // Find the Hello World digital twin card. The page titles a twin in Title
+    // Case, so the name in the card is Hello World and not the directory name.
     const helloWorldCard = page
       .locator('.MuiPaper-root')
-      .filter({ has: page.getByText('Hello world', { exact: true }) })
+      .filter({ has: page.getByText('Hello World', { exact: true }) })
       .first();
     await expect(helloWorldCard).toBeVisible({ timeout: 10000 });
 
@@ -79,7 +80,7 @@ test.describe('Concurrent Execution', () => {
 
     await historyButton.click();
     const historyDialog = page.getByRole('dialog', {
-      name: 'Hello world Execution History',
+      name: 'Hello World Execution History',
     });
     await expect(historyDialog).toBeVisible();
     const knownExecutionIds = await getExecutionIds(historyDialog);
@@ -98,7 +99,7 @@ test.describe('Concurrent Execution', () => {
     await historyButton.click();
     await expect(historyDialog).toBeVisible();
     await expect(
-      page.getByRole('heading', { name: /Hello world Execution History/ }),
+      page.getByRole('heading', { name: /Hello World Execution History/ }),
     ).toBeVisible();
 
     // Wait for execution history to load
@@ -123,10 +124,11 @@ test.describe('Concurrent Execution', () => {
   test('should persist execution history across page reloads', async ({
     page,
   }) => {
-    // Find the Hello world Digital Twin card
+    // Find the Hello World digital twin card. The page titles a twin in Title
+    // Case, so the name in the card is Hello World and not the directory name.
     let helloWorldCard = page
       .locator('.MuiPaper-root')
-      .filter({ has: page.getByText('Hello world', { exact: true }) })
+      .filter({ has: page.getByText('Hello World', { exact: true }) })
       .first();
     await expect(helloWorldCard).toBeVisible({ timeout: 30000 });
 
@@ -166,7 +168,7 @@ test.describe('Concurrent Execution', () => {
     // Wait for the Digital Twin card to be visible
     helloWorldCard = page
       .locator('.MuiPaper-root')
-      .filter({ has: page.getByText('Hello world', { exact: true }) })
+      .filter({ has: page.getByText('Hello World', { exact: true }) })
       .first();
     await expect(helloWorldCard).toBeVisible({ timeout: 30000 });
 

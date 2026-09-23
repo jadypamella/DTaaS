@@ -8,8 +8,8 @@ import { openAuthenticatedApp } from 'test/e2e/setup/appSettings';
  */
 const MISSING = './no-such-page';
 
-test.describe('Page for an address that does not exist', () => {
-  test('names the address and offers the way back to a visitor', async ({
+test.describe('Page for an Address That Does Not Exist', () => {
+  test('Names the address and offers the way back to a visitor', async ({
     page,
   }) => {
     await page.goto(MISSING);
@@ -24,7 +24,7 @@ test.describe('Page for an address that does not exist', () => {
     await expect(page.getByRole('button', { name: 'Sign In' })).toBeVisible();
   });
 
-  test('keeps the menu for a person who is signed in', async ({ page }) => {
+  test('Keeps the menu for a person who is signed in', async ({ page }) => {
     await openAuthenticatedApp(page, MISSING);
 
     await expect(

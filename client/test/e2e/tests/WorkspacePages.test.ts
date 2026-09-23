@@ -12,7 +12,7 @@ import { openAuthenticatedApp } from 'test/e2e/setup/appSettings';
  */
 const username = (process.env.REACT_APP_TEST_USERNAME ?? '').toLowerCase();
 
-test.describe('Workspace pages opened directly', () => {
+test.describe('Workspace Pages Opened Directly', () => {
   test('Library shows the workspace file browser', async ({ page }) => {
     await openAuthenticatedApp(page, './library');
 

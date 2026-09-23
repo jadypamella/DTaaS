@@ -24,7 +24,7 @@ test.describe('Building Models', () => {
     await expect(page).toHaveURL(/.*Library/);
   });
 
-  test('is reachable from the menu and renders its own heading', async ({
+  test('Is reachable from the menu and renders its own heading', async ({
     page,
   }) => {
     // The menu names the route Buildings, and the page heads itself
@@ -37,7 +37,7 @@ test.describe('Building Models', () => {
     ).toBeVisible();
   });
 
-  test('names the library directory it reads models from', async ({ page }) => {
+  test('Names the library directory it reads models from', async ({ page }) => {
     // The address comes from the deployment's own configuration. A page that
     // did not say where it was looking would leave an empty list ambiguous
     // between "no models" and "wrong directory".
@@ -46,7 +46,7 @@ test.describe('Building Models', () => {
     await expect(page.getByText('common/models')).toBeVisible();
   });
 
-  test('says what it found instead of leaving the page blank', async ({
+  test('Says what it found instead of leaving the page blank', async ({
     page,
   }) => {
     // Either outcome is correct and the page has to distinguish them: a
@@ -106,13 +106,13 @@ async function chooseModel(page: Page, title: string) {
     .click({ timeout: 30000 });
 }
 
-test.describe('Building Models, drawing a model', () => {
+test.describe('Building Models, Drawing a Model', () => {
   test.beforeEach(async ({ page }) => {
     await openAuthenticatedApp(page);
     await expect(page).toHaveURL(/.*Library/);
   });
 
-  test('converts a model, stores it, and draws it again from what it stored', async ({
+  test('Converts a model, stores it, and draws it again from what it stored', async ({
     page,
     baseURL,
   }, testInfo) => {
@@ -172,8 +172,8 @@ test.describe('Building Models, drawing a model', () => {
   });
 });
 
-test.describe('Building Models without a session', () => {
-  test('sends the visitor to sign in', async ({ page, baseURL }) => {
+test.describe('Building Models Without a Session', () => {
+  test('Sends the visitor to sign in', async ({ page, baseURL }) => {
     // The route reads the signed-in user's own library, so it must not be
     // reachable without a session. The session lives in sessionStorage and is
     // restored only by openAuthenticatedApp, so a page opened directly has

@@ -46,8 +46,8 @@ async function deleteTwin(page: Page, name: string, title: string) {
   });
 }
 
-test.describe('Digital twin lifecycle', () => {
-  test('creates a twin, reconfigures it, and deletes it', async ({
+test.describe('Digital Twin Lifecycle', () => {
+  test('Creates a twin, reconfigures it, and deletes it', async ({
     page,
   }, testInfo) => {
     // The page titles a twin by its name with dashes read as spaces and each

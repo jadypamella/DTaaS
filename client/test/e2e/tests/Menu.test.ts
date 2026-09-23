@@ -5,7 +5,7 @@ import test from 'test/e2e/setup/fixtures';
 import { openAuthenticatedApp } from 'test/e2e/setup/appSettings';
 import links, { workbenchLinks } from './Links';
 
-test.describe('Menu Links from first page (Layout)', () => {
+test.describe('Menu Links From First Page (Layout)', () => {
   test.beforeEach(async ({ page }) => {
     await openAuthenticatedApp(page);
     await expect(page).toHaveURL(/.*Library/);

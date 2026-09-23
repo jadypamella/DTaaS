@@ -18,7 +18,7 @@ test.describe('Automation', () => {
     await expect(page).toHaveURL(/.*Library/);
   });
 
-  test('opens the Library Page and the Digital Twins Page in this tab', async ({
+  test('Opens the Library Page and the Digital Twins Page in this tab', async ({
     page,
   }) => {
     await page.getByRole('link', { name: 'Automation' }).click();
@@ -40,7 +40,7 @@ test.describe('Automation', () => {
     ).toBeVisible();
   });
 
-  test('the workbench no longer lists the two pages', async ({ page }) => {
+  test('The workbench no longer lists the two pages', async ({ page }) => {
     await page.getByRole('link', { name: 'Workbench' }).click();
     await expect(page).toHaveURL('./workbench');
     // Wait for the workspace tools, so the absence below is checked on a
@@ -52,7 +52,7 @@ test.describe('Automation', () => {
   });
 });
 
-test.describe('Library Page selection', () => {
+test.describe('Library Page Selection', () => {
   test.beforeEach(async ({ page }) => {
     await openAuthenticatedApp(page, './preview/library');
     // The Digital Twins tab, because the test account's own digital twins,
@@ -61,7 +61,7 @@ test.describe('Library Page selection', () => {
     await page.getByRole('tab', { name: 'Digital Twins' }).click();
   });
 
-  test('starts empty and offers its actions once something is chosen', async ({
+  test('Starts empty and offers its actions once something is chosen', async ({
     page,
   }) => {
     const empty = page.getByText(/Nothing chosen yet/);
@@ -89,7 +89,7 @@ test.describe('Library Page selection', () => {
     await expect(create).toBeDisabled();
   });
 
-  test('carries the selection to the Digital Twins Page', async ({ page }) => {
+  test('Carries the selection to the Digital Twins Page', async ({ page }) => {
     await page
       .getByRole('button', { name: 'Add', exact: true })
       .first()

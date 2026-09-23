@@ -71,7 +71,7 @@ describe('PrivateRoute', () => {
     (useDispatch as unknown as jest.Mock).mockReturnValue(dispatch);
   });
 
-  test('renders loading and redirects correctly when authenticated/not authentic', async () => {
+  test('Renders loading and redirects correctly when authenticated/not authentic', async () => {
     setupTest({
       isLoading: false,
       error: null,
@@ -98,7 +98,7 @@ describe('PrivateRoute', () => {
     expect(screen.getByText(/ExecutionHistoryLoader/i)).toBeInTheDocument();
   });
 
-  test('renders error', () => {
+  test('Renders error', () => {
     setupTest({
       isLoading: false,
       error: new Error('Test error'),
@@ -109,13 +109,13 @@ describe('PrivateRoute', () => {
     expect(screen.getByText('Mock WaitNavigateAndReload')).toBeInTheDocument();
   });
 
-  test('holds the access token in memory when authenticated', () => {
+  test('Holds the access token in memory when authenticated', () => {
     setupTest({ isLoading: false, error: null, isAuthenticated: true });
 
     expect(getAccessToken()).toBe('example_token');
   });
 
-  test('does not write the access token to sessionStorage', () => {
+  test('Does not write the access token to sessionStorage', () => {
     // This client used to write a second copy there, where script on this
     // origin can read it, including script inside the same-origin iframes the
     // library and digital twin pages embed without a sandbox attribute. The
@@ -128,7 +128,7 @@ describe('PrivateRoute', () => {
     expect(stored).not.toContain('example_token');
   });
 
-  test('sends the person to sign in when a session has no user', () => {
+  test('Sends the person to sign in when a session has no user', () => {
     // react-oidc-context should not report this state. If it ever does, the
     // route has no token for its children, so it redirects instead of throwing
     // during render and taking the page down with it.
@@ -150,7 +150,7 @@ describe('PrivateRoute', () => {
     expect(getAccessToken()).toBe('');
   });
 
-  test('records the user name for whichever private page opens first', () => {
+  test('Records the user name for whichever private page opens first', () => {
     // Every workspace address carries the name. A page opened directly, and
     // not after Library, used to find it empty and ask for //lab.
     setupTest({ isLoading: false, error: null, isAuthenticated: true });
@@ -158,7 +158,7 @@ describe('PrivateRoute', () => {
     expect(dispatch).toHaveBeenCalledWith(setUserName('username'));
   });
 
-  test('records no user name before the session is established', () => {
+  test('Records no user name before the session is established', () => {
     setupTest({ isLoading: true, error: null, isAuthenticated: false });
 
     expect(dispatch).not.toHaveBeenCalled();

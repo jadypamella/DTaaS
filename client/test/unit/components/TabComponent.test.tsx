@@ -13,7 +13,7 @@ describe('TabComponent', () => {
   const assetTypeTabs = createTabs();
   const scopeTabs = createCombinedTabs();
 
-  test('renders an empty tab', async () => {
+  test('Renders an empty tab', async () => {
     const { getByText } = render(
       <TabComponent assetType={assetTypeTabs} scope={scopeTabs} />,
     );
@@ -23,7 +23,7 @@ describe('TabComponent', () => {
     await userEvent.click(emptyTab);
   });
 
-  test('renders tabs with labels and defaults to the first tab open', async () => {
+  test('Renders tabs with labels and defaults to the first tab open', async () => {
     render(<TabComponent assetType={assetTypeTabs} scope={scopeTabs} />);
 
     const functionsAppear = screen.getAllByText('Functions');
@@ -51,7 +51,7 @@ describe('TabComponent', () => {
     }
   });
 
-  test('changes the active tab on click', async () => {
+  test('Changes the active tab on click', async () => {
     render(<TabComponent assetType={assetTypeTabs} scope={scopeTabs} />);
     const clickedTab = screen.getByRole('tab', { name: 'Data' });
 
@@ -72,7 +72,7 @@ describe('TabComponent', () => {
     ).not.toBeInTheDocument();
   });
 
-  test('constructs correct URLs for Iframes', () => {
+  test('Constructs correct URLs for Iframes', () => {
     const gitlabName = 'user';
     const LIBURL = `http://localhost.com:4000/${gitlabName}/`;
     const assets = 'Digital Twins';

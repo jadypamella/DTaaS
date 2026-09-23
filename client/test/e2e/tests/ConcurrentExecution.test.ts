@@ -57,7 +57,7 @@ test.describe('Concurrent Execution', () => {
   });
 
   // @slow - This test requires waiting for actual GitLab pipeline execution
-  test('should start multiple executions concurrently and view logs', async ({
+  test('Should start multiple executions concurrently and view logs', async ({
     page,
   }) => {
     // Find the Hello World digital twin card. The page titles a twin in Title
@@ -121,7 +121,7 @@ test.describe('Concurrent Execution', () => {
     await expect(historyDialog).not.toBeVisible();
   });
 
-  test('should persist execution history across page reloads', async ({
+  test('Should persist execution history across page reloads', async ({
     page,
   }) => {
     // Find the Hello World digital twin card. The page titles a twin in Title

@@ -3,7 +3,7 @@ import { render } from '@testing-library/react';
 import MarkdownStyles, { MARKDOWN_CLASS } from 'components/MarkdownStyles';
 
 describe('MarkdownStyles', () => {
-  it('scopes every rule to the element that holds the markdown', () => {
+  it('Scopes every rule to the element that holds the markdown', () => {
     // A bare img or table selector applies to the whole document for as long
     // as the preview tab or the details dialog is mounted. Each rule names the
     // class instead, so the stylesheet reaches the rendered markdown only.

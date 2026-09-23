@@ -57,14 +57,14 @@ const renderToolbar = () => {
   );
 };
 
-describe('MenuToolbar sign out', () => {
+describe('MenuToolbar Sign Out', () => {
   beforeEach(() => {
     signOut.mockReset().mockResolvedValue(undefined);
     (useSignOut as jest.Mock).mockReturnValue(signOut);
     (useAuth as jest.Mock).mockReturnValue(auth);
   });
 
-  it('signs the user out with the current session when Logout is pressed', async () => {
+  it('Signs the user out with the current session when Logout is pressed', async () => {
     renderToolbar();
 
     await userEvent.click(screen.getByRole('menuitem', { name: /Logout/ }));
@@ -73,7 +73,7 @@ describe('MenuToolbar sign out', () => {
     expect(signOut).toHaveBeenCalledWith(auth);
   });
 
-  it('does nothing when there is no session to end', async () => {
+  it('Does nothing when there is no session to end', async () => {
     // useAuth returns undefined outside a provider, which is how several tests
     // render this toolbar. Pressing Logout there must not reach the flow.
     (useAuth as jest.Mock).mockReturnValue(undefined);

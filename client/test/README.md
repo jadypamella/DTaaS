@@ -42,7 +42,7 @@ The correct callback URL must be added to the OAuth application.
 Depending on the location of the client website, register one of the
 following callback URLs.
 
-| Location of client application | URL                     |
+| Location of Client Application | URL                     |
 | :----------------------------- | :---------------------- |
 | Localhost                      | `http://localhost:4000` |
 | External / Integration server  | `https://intocps.org`   |
@@ -176,7 +176,7 @@ The `yarn test:e2e` command launches the test runner and the DTaaS client applic
 then executes all end-to-end tests.
 The client application is terminated at the end of end-to-end tests.
 
-## Testing against a local deployment of the whole platform
+## Testing Against a Local Deployment of the Whole Platform
 
 The two setups above serve the website alone. The Library and Building Models
 pages also read the signed-in user's workspace, which is served by the same
@@ -203,7 +203,7 @@ meant is `yarn test:e2e:ext`.
 The GitLab OAuth application needs the deployment's address among its callback
 URLs, in the same way the two setups above need theirs.
 
-## Testing on the integration server
+## Testing on the Integration Server
 
 In this setup, the DTaaS application runs at `https://intocps.org` and
 the GitLab instance runs at `https://gitlab.intocps.org`.

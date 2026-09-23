@@ -54,9 +54,7 @@ test.describe('Automation', () => {
 
 test.describe('Library Page selection', () => {
   test.beforeEach(async ({ page }) => {
-    await openAuthenticatedApp(page);
-    await expect(page).toHaveURL(/.*Library/);
-    await page.goto('./preview/library');
+    await openAuthenticatedApp(page, './preview/library');
     // The Digital Twins tab, because the test account's own digital twins,
     // Hello World and Mass Spring Damper, are what the other suites run, so
     // they are there to choose. The first tab can be empty.

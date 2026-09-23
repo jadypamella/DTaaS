@@ -30,16 +30,21 @@ test.describe('Tests on Authentication Flow', () => {
   });
 
   test('Accessing protected routes without authentication', async ({
-    page,
+    context,
     baseURL,
   }) => {
+    // A page of its own for each address, so each one is opened the way a
+    // visitor opens a link, and never by unloading the previous page (see
+    // openAuthenticatedApp).
     await links.reduce(async (previousPromise, link) => {
       await previousPromise;
+      const page = await context.newPage();
       await page.goto(link.url.charAt(1).toUpperCase());
       await expect(page).toHaveURL(baseURL?.replace(/\/$/, '') ?? './');
       await expect(page.locator('button:has-text("Sign In")')).toBeVisible({
         timeout: 10000,
       });
+      await page.close();
     }, Promise.resolve());
   });
 });

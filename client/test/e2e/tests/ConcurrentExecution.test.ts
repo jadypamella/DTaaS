@@ -42,12 +42,12 @@ async function expectExecutionLogs(
 
 test.describe('Concurrent Execution', () => {
   test.beforeEach(async ({ page }) => {
-    // Navigate to the home page and authenticate
-    await openAuthenticatedApp(page);
+    // Open the Digital Twins page, save the runner tags on the Account page,
+    // and come back through the browser history
+    await openAuthenticatedApp(page, './preview/digitaltwins');
     await saveRunnerSettings(page);
-
-    // Navigate directly to the Digital Twins page
-    await page.goto('./preview/digitaltwins');
+    await page.goBack();
+    await expect(page).toHaveURL(/preview\/digitaltwins/);
 
     // Navigate to the Execute tab
     await page.getByRole('tab', { name: 'Execute' }).click();

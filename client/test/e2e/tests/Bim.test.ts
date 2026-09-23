@@ -41,7 +41,7 @@ test.describe('Building Models', () => {
     // The address comes from the deployment's own configuration. A page that
     // did not say where it was looking would leave an empty list ambiguous
     // between "no models" and "wrong directory".
-    await page.goto('./bim');
+    await page.getByRole('link', { name: 'Buildings' }).click();
 
     await expect(page.getByText('common/models')).toBeVisible();
   });
@@ -52,7 +52,7 @@ test.describe('Building Models', () => {
     // Either outcome is correct and the page has to distinguish them: a
     // library with no IFC file says so, and a library with one offers the
     // models in a menu headed IFC Model and says how many there are.
-    await page.goto('./bim');
+    await page.getByRole('link', { name: 'Buildings' }).click();
 
     const empty = page.getByText('No IFC file is in the shared library yet.');
     const picker = page.getByRole('combobox', { name: 'IFC Model' });
@@ -92,7 +92,7 @@ async function expectModelDrawn(page: Page) {
 
 /** Choose a model in the IFC Model menu by the name it is listed under. */
 async function chooseModel(page: Page, title: string) {
-  await page.goto('./bim');
+  await page.getByRole('link', { name: 'Buildings' }).click();
   const picker = page.getByRole('combobox', { name: 'IFC Model' });
   // The list comes from the workspace over the network, which takes longer
   // than the default five seconds on a busy run.
@@ -153,6 +153,10 @@ test.describe('Building Models, drawing a model', () => {
       await expectModelDrawn(page);
 
       // Second visit: the stored .glb is loaded instead of converting again.
+      // Leaving for the Library and coming back mounts the page anew, so it
+      // lists the folder again and finds the .glb the first visit stored.
+      await page.getByRole('link', { name: 'Library' }).click();
+      await expect(page).toHaveURL(/.*library/i);
       await chooseModel(page, title);
       await expect(
         page.getByText(/No converted geometry sits beside this model/),

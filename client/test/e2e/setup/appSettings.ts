@@ -44,9 +44,19 @@ export async function authorizeIfAsked(page: Page) {
   await expect(signedIn).toBeVisible({ timeout: 30000 });
 }
 
-export async function openAuthenticatedApp(page: Page) {
+/**
+ * Open the signed-in website directly at the page a test needs.
+ *
+ * Tests move on from there by clicking, as a person does, and not by loading
+ * a second address. Loading one unloads the running application, and the
+ * Firefox driver of Playwright can fail that unload when it has to stop the
+ * application's own unload handler (react-router saves its state to
+ * sessionStorage there). The failure reads "Assertion error" and is the
+ * driver's, not the website's.
+ */
+export async function openAuthenticatedApp(page: Page, path = './Library') {
   await restoreSessionStorage(page);
-  await page.goto('./Library');
+  await page.goto(path);
   await expect(page.getByRole('button', { name: 'Open settings' })).toBeVisible(
     { timeout: 30000 },
   );

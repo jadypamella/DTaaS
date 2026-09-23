@@ -137,6 +137,13 @@ example values above are only examples. A tag no runner carries leaves the
 pipeline of that task queued, and the measurement test waits for a status that
 never arrives, which reads as a slow test and is a missing runner.
 
+Two tests write to that account and remove what they wrote. The digital twin
+lifecycle test creates a twin named `e2e-<browser>-<time>` in the GitLab
+project, reconfigures it and deletes it. The Building Models test uploads an
+IFC file named `e2e_<browser>_<time>.ifc` to `common/models` in the workspace
+and deletes it with the geometry it stored. A run stopped part way can leave
+one of them behind, and it is safe to delete by hand.
+
 The following is an example `test/.env` for a setup where tests run on
 the developer machine and the DTaaS client application runs on a remote
 integration server:

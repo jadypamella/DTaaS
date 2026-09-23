@@ -1,10 +1,11 @@
-import React, { ReactNode } from 'react';
+import React, { ReactNode, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from 'react-oidc-context';
 import ExecutionHistoryLoader from 'components/execution/ExecutionHistoryLoader';
 import WaitNavigateAndReload from 'route/auth/WaitAndNavigate';
 import { useLogger } from 'util/logger/useLogger';
 import { clearAccessToken, setAccessToken } from 'util/auth/accessToken';
+import { useGetAndSetUsername } from 'util/auth/Authentication';
 
 interface PrivateRouteProps {
   children: ReactNode;
@@ -73,7 +74,19 @@ const PrivateRoute: React.FC<PrivateRouteProps> = ({ children }) => {
   // after a reload. Assigning a module variable has no other consequence.
   storeAccessToken(auth.isAuthenticated, auth.user);
 
+  // The user name goes into every workspace address, the embedded Digital
+  // Twins frame and the Workbench tool list among them. Only Library and
+  // Building Models used to set it, so any other page opened first, by a
+  // bookmark or a reload, asked for an address with no name in it.
   const routeState = getRouteState(auth);
+  const getAndSetUsername = useGetAndSetUsername();
+  useEffect(() => {
+    if (routeState === 'authenticated') {
+      getAndSetUsername(auth);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routeState, auth.user]);
+
   return renderRouteState(routeState, auth.error, children);
 };
 

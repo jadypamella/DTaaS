@@ -4,6 +4,8 @@ import { useAuth } from 'react-oidc-context';
 import PrivateRoute from 'route/auth/PrivateRoute';
 import { renderWithRouter } from 'test/unit/unit.testUtil';
 import { getAccessToken } from 'util/auth/accessToken';
+import { useDispatch } from 'react-redux';
+import { setUserName } from 'store/auth.slice';
 
 jest.mock('routes', () => {
   const MockSignin = () => <div>Signin</div>;
@@ -61,8 +63,12 @@ const setupTest = (authState: AuthState) => {
 };
 
 describe('PrivateRoute', () => {
+  const dispatch = jest.fn();
+
   beforeEach(() => {
     sessionStorage.clear();
+    dispatch.mockClear();
+    (useDispatch as unknown as jest.Mock).mockReturnValue(dispatch);
   });
 
   test('renders loading and redirects correctly when authenticated/not authentic', async () => {
@@ -142,5 +148,19 @@ describe('PrivateRoute', () => {
 
     expect(screen.queryByText('Test Component')).not.toBeInTheDocument();
     expect(getAccessToken()).toBe('');
+  });
+
+  test('records the user name for whichever private page opens first', () => {
+    // Every workspace address carries the name. A page opened directly, and
+    // not after Library, used to find it empty and ask for //lab.
+    setupTest({ isLoading: false, error: null, isAuthenticated: true });
+
+    expect(dispatch).toHaveBeenCalledWith(setUserName('username'));
+  });
+
+  test('records no user name before the session is established', () => {
+    setupTest({ isLoading: true, error: null, isAuthenticated: false });
+
+    expect(dispatch).not.toHaveBeenCalled();
   });
 });

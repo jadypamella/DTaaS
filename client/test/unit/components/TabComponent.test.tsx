@@ -13,13 +13,14 @@ describe('TabComponent', () => {
   const assetTypeTabs = createTabs();
   const scopeTabs = createCombinedTabs();
 
-  test('renders an empty tab', () => {
+  test('renders an empty tab', async () => {
     const { getByText } = render(
       <TabComponent assetType={assetTypeTabs} scope={scopeTabs} />,
     );
     const emptyTab = getByText('Functions');
     expect(emptyTab).toBeInTheDocument();
-    userEvent.click(emptyTab);
+    // Awaited, so the test ends after the click and not while it is running.
+    await userEvent.click(emptyTab);
   });
 
   test('renders tabs with labels and defaults to the first tab open', async () => {

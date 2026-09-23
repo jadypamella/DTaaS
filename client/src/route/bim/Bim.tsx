@@ -14,7 +14,6 @@
  */
 
 import { useCallback, useEffect, useRef } from 'react';
-import { useAuth } from 'react-oidc-context';
 import { useSelector } from 'react-redux';
 import { Box, CircularProgress, Link, Typography } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
@@ -25,7 +24,6 @@ import {
 import Layout from 'page/Layout';
 import PageShell from 'components/PageShell';
 import { useURLforLIB } from 'util/envUtil';
-import { useGetAndSetUsername } from 'util/auth/Authentication';
 import { RootState } from 'store/store';
 import { uploadGeometry } from 'route/bim/persistGeometry';
 import MODELS_DIRECTORY from 'route/bim/library';
@@ -36,8 +34,6 @@ const DESCRIPTION =
   'readings their sensors report.';
 
 function Bim() {
-  const auth = useAuth();
-  const getAndSetUsername = useGetAndSetUsername();
   const libraryUrl = useURLforLIB();
   const username = useSelector((state: RootState) => state.auth.userName);
 
@@ -77,16 +73,9 @@ function Bim() {
     [libraryUrl],
   );
 
-  // The library URL is built from the signed-in user name, which the store
-  // only holds after this runs. Library and Digital Twins do the same thing
-  // in the same place, so this route stays consistent with them instead of
-  // inventing a second way to learn who is signed in.
-  useEffect(() => {
-    getAndSetUsername(auth);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [auth.user]);
-
   // Wait for the name before handing the viewer an address built from it.
+  // PrivateRoute records it once the session is established, in an effect
+  // that runs after this page's first render.
   // `useURLforLIB` interpolates the name whether or not it is there, so on the
   // first render the address reads .../undefined/..., which the catch-all route
   // answers with this application's own HTML and HTTP 200. The viewer then

@@ -6,8 +6,9 @@ so a test does not depend on what that library happens to hold.
 ## `wall-with-opening-and-window.ifc`
 
 A wall with an opening and a window, 12 KB, which the browser converts in a
-second or two. The Building Models tests upload it under a name of their own,
-convert it, open it again from the stored geometry, and delete both files.
+second or two. The Building Models drawing test uploads it under a name of its
+own, converts it, opens it again from the stored geometry, and deletes what it
+wrote.
 
 From the buildingSMART Certification datasets, copyright buildingSMART
 International Ltd., licensed

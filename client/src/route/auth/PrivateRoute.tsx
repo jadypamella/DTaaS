@@ -74,11 +74,12 @@ const PrivateRoute: React.FC<PrivateRouteProps> = ({ children }) => {
   // after a reload. Assigning a module variable has no other consequence.
   storeAccessToken(auth.isAuthenticated, auth.user);
 
-  // The user name goes into every workspace address, the embedded Digital
-  // Twins frame and the Workbench tool list among them. Only Library and
-  // Building Models used to set it, so any other page opened first, by a
-  // bookmark or a reload, asked for an address with no name in it.
   const routeState = getRouteState(auth);
+
+  // The user name goes into every workspace address, the embedded Digital
+  // Twins frame and the Workbench tool list among them. It is recorded here,
+  // once for every private page, so a page opened first by a bookmark or a
+  // reload does not build an address with no name in it.
   const getAndSetUsername = useGetAndSetUsername();
   useEffect(() => {
     if (routeState === 'authenticated') {

@@ -203,6 +203,52 @@ meant is `yarn test:e2e:ext`.
 The GitLab OAuth application needs the deployment's address among its callback
 URLs, in the same way the two setups above need theirs.
 
+## What Runs and How to Choose
+
+`playwright.config.ts` defines five projects. `setup` signs in once and saves
+the session in `playwright/.auth/`, which is gitignored because it holds a
+token. The others reuse that session:
+
+| Project               | Browser  | Tests                                                     |
+| :-------------------- | :------- | :-------------------------------------------------------- |
+| `chromium`, `firefox` | Both     | Every file except the three below                         |
+| `chromium-sequential` | Chromium | `ConcurrentExecution`, `DigitalTwins`, `Measurement`      |
+| `firefox-sequential`  | Firefox  | The same three, which run GitLab pipelines on the runners |
+
+A run retries a failed test once on a developer computer and never on CI.
+Add `--retries=0` to see every failure as it happened. Some useful
+variations, all from the `client` directory:
+
+```bash
+ext=true npx playwright test --retries=0              # everything, no retry
+ext=true npx playwright test Bim --project=chromium   # one file, one browser
+ext=true npx playwright test --ui                     # step through in a window
+```
+
+Leave out `ext=true` when the tests should start the website themselves at
+`localhost:4000`.
+
+## Reading the Results
+
+Every run writes its results to `playwright-report/`, and the HTML report
+is the one to read:
+
+```bash
+yarn playwright show-report
+```
+
+It lists each test per browser, with its steps and timings. A failed test
+carries a screenshot, and when it failed after a retry it also carries a
+trace, a recording of the page at every step. The trace opens from the
+report, or directly with `yarn playwright show-trace <trace.zip>` from
+`test-results/`. The same folder holds `results.xml` (JUnit) and
+`results.json`, for tools that read the results.
+
+The `chromium` project also measures which lines of the client its tests
+executed. That report is written to `coverage/e2e/index.html`.
+
+`playwright-report/`, `test-results/` and `coverage/` are all gitignored.
+
 ## Testing on the Integration Server
 
 In this setup, the DTaaS application runs at `https://intocps.org` and

@@ -206,10 +206,11 @@ that is not a defect.
 yarn test:e2e:ext
 ```
 
-`yarn test:e2e` would start its own preview at that same address. It now reuses
-a website already answering there instead of stopping with
-`http://localhost:8081/ is already used`, but the command that says what is
-meant is `yarn test:e2e:ext`.
+`yarn test:e2e` would build the website and start its own preview at that same
+address, and it stops with `http://localhost:8081/ is already used` when the
+deployment is answering there. That stop is deliberate: the suite never tests
+a website it did not build. `yarn test:e2e:ext` is the command for a website
+served by something else.
 
 The GitLab OAuth application needs the deployment's address among its callback
 URLs, in the same way the two setups above need theirs.

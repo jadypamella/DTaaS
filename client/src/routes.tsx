@@ -139,7 +139,15 @@ export const routes = [
     path: 'insights/config',
     element: (
       <PrivateRoute>
-        <InsightsConfig />
+        <InsightsConfig role="user" />
+      </PrivateRoute>
+    ),
+  },
+  {
+    path: 'insights/developer',
+    element: (
+      <PrivateRoute>
+        <InsightsConfig role="developer" />
       </PrivateRoute>
     ),
   },

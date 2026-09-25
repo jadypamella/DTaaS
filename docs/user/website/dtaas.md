@@ -93,7 +93,8 @@ For troubleshooting login issues, the website configuration can be verified
 by navigating to <https://intocps.org/config/user>. The following display
 indicates a correctly configured application. A signed-in user reaches the
 same check from **Insights** > **Config**, which shows it inside the
-application.
+application, and its link to the full list of values stays inside the
+application as well.
 
 ![Configuration Check](images/config.png)
 

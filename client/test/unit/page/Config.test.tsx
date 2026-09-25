@@ -181,13 +181,13 @@ describe('Config variants', () => {
     ).toHaveAttribute('href', './developer');
   });
 
-  test('Links to the developer page through the router when embedded', async () => {
+  test('Links to the developer view inside the application when embedded', async () => {
     renderUserConfig(invalid, 'embedded');
 
-    // A relative link would resolve to /au/insights/developer, which does not
-    // exist. The router adds the base path to the named page instead.
+    // The developer view of Insights keeps the menu, and the router adds the
+    // base path to it.
     expect(
       await screen.findByRole('link', { name: 'Inspect configuration' }),
-    ).toHaveAttribute('href', '/au/config/developer');
+    ).toHaveAttribute('href', '/au/insights/developer');
   });
 });

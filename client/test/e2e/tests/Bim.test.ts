@@ -131,7 +131,8 @@ test.describe('Building Models, Drawing a Model', () => {
     test.setTimeout(6 * 60 * 1000);
     // The test brings its own model under a name no other run uses, so it
     // does not depend on what the library holds and two browsers never race
-    // for the same file. What it writes is removed at the end.
+    // for the same file. What it writes is removed at the end, unless the run
+    // is stopped from outside.
     const stem = `e2e_${testInfo.project.name}_${Date.now()}`;
     // The menu names a model by the project name inside the file, so the copy
     // uploaded carries the same unique name there. The fixture on disk is not

@@ -43,4 +43,24 @@ describe('InsightsConfig', () => {
       screen.queryByRole('link', { name: 'Return to login' }),
     ).not.toBeInTheDocument();
   });
+
+  it('Shows the developer view inside the application, for the link from the user view', async () => {
+    (configUtil.getValidationResults as jest.Mock).mockResolvedValueOnce({
+      API_URL: { value: 'http://localhost', status: 200 }, // NOSONAR
+    });
+
+    render(
+      <Provider store={store}>
+        <MemoryRouter>
+          <InsightsConfig role="developer" />
+        </MemoryRouter>
+      </Provider>,
+    );
+
+    expect(
+      screen.getAllByRole('heading', { level: 1, name: 'Developer Config' })
+        .length,
+    ).toBeGreaterThan(0);
+    expect(await screen.findByText('Config verification')).toBeInTheDocument();
+  });
 });

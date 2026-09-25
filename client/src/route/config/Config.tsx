@@ -63,8 +63,8 @@ function DeveloperConfig({
 }
 
 // The public page links relative to itself, `./developer`. Inside the
-// application that would resolve to a path that does not exist, so the
-// embedded view names the developer page and lets the router add the base path.
+// application the link goes to the developer view of Insights, which keeps the
+// menu, and the router adds the base path.
 function InspectLink({ variant }: Readonly<{ variant: ConfigVariant }>) {
   const common = {
     style: { fontSize: '0.7em' },
@@ -73,7 +73,7 @@ function InspectLink({ variant }: Readonly<{ variant: ConfigVariant }>) {
   };
   if (variant === 'embedded') {
     return (
-      <Link component={RouterLink} to="/config/developer" {...common}>
+      <Link component={RouterLink} to="/insights/developer" {...common}>
         Inspect configuration
       </Link>
     );

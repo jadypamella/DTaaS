@@ -7,7 +7,9 @@ import { openAuthenticatedApp } from 'test/e2e/setup/appSettings';
  * of the Digital Twins Page.
  *
  * Every step writes to the signed-in user's GitLab project, so the twin gets a
- * name no other run uses and is deleted at the end whatever happened before.
+ * name no other run uses and is deleted at the end, also when a step fails. A
+ * run stopped from outside, by the global timeout or by hand, skips that
+ * clean-up, and test/README.md says the twin is then safe to delete by hand.
  * The file name matches the sequential projects of playwright.config.ts, which
  * is where the tests that change the shared GitLab project run.
  */

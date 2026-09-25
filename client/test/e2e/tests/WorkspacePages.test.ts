@@ -1,6 +1,9 @@
 import { expect } from '@playwright/test';
 import test from 'test/e2e/setup/fixtures';
-import { openAuthenticatedApp } from 'test/e2e/setup/appSettings';
+import {
+  openAuthenticatedApp,
+  requireFullPlatform,
+} from 'test/e2e/setup/appSettings';
 
 /**
  * The pages that show the workspace itself, each opened directly, the way a
@@ -13,6 +16,16 @@ import { openAuthenticatedApp } from 'test/e2e/setup/appSettings';
 const username = (process.env.REACT_APP_TEST_USERNAME ?? '').toLowerCase();
 
 test.describe('Workspace Pages Opened Directly', () => {
+  requireFullPlatform();
+
+  test.beforeEach(() => {
+    // An empty name would turn the address checks below into //tree/ and
+    // fail without saying why.
+    expect(username, 'REACT_APP_TEST_USERNAME is set in test/.env').not.toBe(
+      '',
+    );
+  });
+
   test('Library shows the workspace file browser', async ({ page }) => {
     await openAuthenticatedApp(page, './library');
 

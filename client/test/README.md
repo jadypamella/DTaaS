@@ -67,10 +67,14 @@ Additional information on environment settings is available in the
 [authorisation](../../docs/admin/client/auth.md) and
 [client configuration](../../docs/admin/client/config.md) pages.
 
-The following example values are suitable for testing on the developer
-computer (`localhost`). They are the values `config/test.js` carries: the
-GitLab at `https://dtl-server-2.st.lab.au.dk/gitlab`, and an OAuth application
+`config/test.js` carries neutral defaults, with `https://gitlab.com` as the
+authority. A site with its own GitLab edits its local copy and does not commit
+it. The following example values are for such a site, testing on the
+developer computer (`localhost`): the GitLab at
+`https://dtl-server-2.st.lab.au.dk/gitlab`, and an OAuth application
 registered there with `http://localhost:4000/Library` among its callback URLs.
+They are needed only when the tests start the website themselves. Against a
+deployment, the website reads the deployment's own configuration.
 
 ```js
 window.env = {
@@ -185,11 +189,18 @@ platform runs, and not when the website runs on its own at `localhost:4000`.
 
 In that setup the website is already served, by the deployment, so the tests
 must not start a second one. Point `test/.env` at the address the deployment
-answers on and run the external-server command:
+answers on, say that the whole platform runs there, and run the
+external-server command:
 
 ```bash
 REACT_APP_URL='http://localhost:8081'
+FULL_PLATFORM=true
 ```
+
+Without `FULL_PLATFORM=true`, the tests that read the workspace are skipped,
+and the skip names what to start: the Workspace Pages tests and three of the
+Building Models tests. They would fail against the website alone, for a reason
+that is not a defect.
 
 ```bash
 yarn test:e2e:ext
@@ -209,11 +220,15 @@ URLs, in the same way the two setups above need theirs.
 the session in `playwright/.auth/`, which is gitignored because it holds a
 token. The others reuse that session:
 
-| Project               | Browser  | Tests                                                     |
-| :-------------------- | :------- | :-------------------------------------------------------- |
-| `chromium`, `firefox` | Both     | Every file except the three below                         |
-| `chromium-sequential` | Chromium | `ConcurrentExecution`, `DigitalTwins`, `Measurement`      |
-| `firefox-sequential`  | Firefox  | The same three, which run GitLab pipelines on the runners |
+| Project               | Browser  | Tests                                                               |
+| :-------------------- | :------- | :------------------------------------------------------------------ |
+| `chromium`, `firefox` | Both     | Every file except those below                                       |
+| `chromium-sequential` | Chromium | Files named `ConcurrentExecution`, `DigitalTwins*` or `Measurement` |
+| `firefox-sequential`  | Firefox  | The same files                                                      |
+
+The sequential projects hold the tests that run GitLab pipelines on the
+runners, and the one that changes the shared GitLab project,
+`DigitalTwinsLifecycle`.
 
 A run retries a failed test once on a developer computer and never on CI.
 Add `--retries=0` to see every failure as it happened. Some useful
@@ -241,8 +256,9 @@ It lists each test per browser, with its steps and timings. A failed test
 carries a screenshot, and when it failed after a retry it also carries a
 trace, a recording of the page at every step. The trace opens from the
 report, or directly with `yarn playwright show-trace <trace.zip>` from
-`test-results/`. The same folder holds `results.xml` (JUnit) and
-`results.json`, for tools that read the results.
+`test-results/`, which holds the traces and screenshots. `results.xml`
+(JUnit) and `results.json`, for tools that read the results, are in
+`playwright-report/` with the HTML report.
 
 The `chromium` project also measures which lines of the client its tests
 executed. That report is written to `coverage/e2e/index.html`.

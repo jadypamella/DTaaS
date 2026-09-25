@@ -4,7 +4,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { expect, type Page } from '@playwright/test';
 import test from 'test/e2e/setup/fixtures';
-import { openAuthenticatedApp } from 'test/e2e/setup/appSettings';
+import {
+  openAuthenticatedApp,
+  requireFullPlatform,
+} from 'test/e2e/setup/appSettings';
 
 /**
  * The Building Models route, end to end.
@@ -38,6 +41,8 @@ test.describe('Building Models', () => {
   });
 
   test('Names the library directory it reads models from', async ({ page }) => {
+    // The directory is named once the workspace has answered the listing.
+    requireFullPlatform();
     // The address comes from the deployment's own configuration. A page that
     // did not say where it was looking would leave an empty list ambiguous
     // between "no models" and "wrong directory".
@@ -49,6 +54,8 @@ test.describe('Building Models', () => {
   test('Says what it found instead of leaving the page blank', async ({
     page,
   }) => {
+    // The list comes from the workspace, which only a deployment serves.
+    requireFullPlatform();
     // Either outcome is correct and the page has to distinguish them: a
     // library with no IFC file says so, and a library with one offers the
     // models in a menu headed IFC Model and says how many there are.
@@ -98,8 +105,8 @@ async function chooseModel(page: Page, title: string) {
   // than the default five seconds on a busy run.
   await expect(picker).toBeVisible({ timeout: 30000 });
   await picker.click();
-  // Its own limit, so a model that is not listed fails the test well before
-  // the test's timeout and leaves time to remove what the test uploaded.
+  // Its own limit, so a model that is not listed fails this step with a
+  // message that names it instead of running into the test's timeout.
   await page
     .getByRole('option')
     .filter({ hasText: title })
@@ -107,6 +114,8 @@ async function chooseModel(page: Page, title: string) {
 }
 
 test.describe('Building Models, Drawing a Model', () => {
+  requireFullPlatform();
+
   test.beforeEach(async ({ page }) => {
     await openAuthenticatedApp(page);
     await expect(page).toHaveURL(/.*Library/);
@@ -116,6 +125,10 @@ test.describe('Building Models, Drawing a Model', () => {
     page,
     baseURL,
   }, testInfo) => {
+    // The waits below add up to about five minutes at worst: the list, the
+    // conversion and the drawing, twice. The default of 90 seconds would stop
+    // the test part way and leave the uploaded model behind.
+    test.setTimeout(6 * 60 * 1000);
     // The test brings its own model under a name no other run uses, so it
     // does not depend on what the library holds and two browsers never race
     // for the same file. What it writes is removed at the end.

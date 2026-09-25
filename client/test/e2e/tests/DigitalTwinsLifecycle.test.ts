@@ -8,6 +8,8 @@ import { openAuthenticatedApp } from 'test/e2e/setup/appSettings';
  *
  * Every step writes to the signed-in user's GitLab project, so the twin gets a
  * name no other run uses and is deleted at the end whatever happened before.
+ * The file name matches the sequential projects of playwright.config.ts, which
+ * is where the tests that change the shared GitLab project run.
  */
 
 /**
@@ -50,11 +52,20 @@ test.describe('Digital Twin Lifecycle', () => {
   test('Creates a twin, reconfigures it, and deletes it', async ({
     page,
   }, testInfo) => {
+    // Creation, reconfiguration and deletion each wait on GitLab, about four
+    // minutes in all at worst. The default of 90 seconds would stop the test
+    // part way and leave the twin in the shared project.
+    test.setTimeout(6 * 60 * 1000);
+
     // The page titles a twin by its name with dashes read as spaces and each
-    // word capitalised, so e2e-chromium-1 is listed as E2e Chromium 1.
+    // word capitalised, so e2e-chromium-sequential-1 is listed as
+    // E2e Chromium Sequential 1.
     const stamp = Date.now();
     const name = `e2e-${testInfo.project.name}-${stamp}`;
-    const title = `E2e ${testInfo.project.name.replace(/^./, (c) => c.toUpperCase())} ${stamp}`;
+    const title = name
+      .split('-')
+      .map((word) => word.replace(/^./, (c) => c.toUpperCase()))
+      .join(' ');
     const marker = `Reconfigured by the end-to-end suite ${stamp}`;
 
     await openAuthenticatedApp(page, './preview/digitaltwins');

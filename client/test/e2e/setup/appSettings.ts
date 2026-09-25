@@ -1,4 +1,5 @@
 import { expect, type Page } from '@playwright/test';
+import test from 'test/e2e/setup/fixtures';
 import { restoreSessionStorage } from 'test/e2e/setup/authStorage';
 
 export const PRIMARY_RUNNER = process.env.PRIMARY_RUNNER ?? 'linux';
@@ -76,4 +77,23 @@ export async function saveRunnerSettings(
   await page.fill('#runnerTag', primaryRunner);
   await page.fill('#measurementSecondaryRunnerTag', secondaryRunner);
   await page.getByRole('button', { name: 'Save Settings' }).click();
+}
+
+/**
+ * Skip the tests of the enclosing describe block unless the whole platform
+ * runs.
+ *
+ * Library, Building Models and the Workbench read the signed-in user's
+ * workspace, which a deployment serves on the same origin as the website.
+ * When the tests start the website on its own at localhost:4000, those
+ * addresses are answered by the website itself, so these tests would fail for
+ * a reason that is not a defect. `FULL_PLATFORM=true` in `test/.env` says the
+ * address in `REACT_APP_URL` is a deployment of the whole platform.
+ */
+export function requireFullPlatform() {
+  test.skip(
+    process.env.FULL_PLATFORM !== 'true',
+    'Needs the whole platform. Start a deployment, point REACT_APP_URL at it ' +
+      'and set FULL_PLATFORM=true in test/.env, as test/README.md describes.',
+  );
 }

@@ -162,33 +162,48 @@ const useValidationResults = () => {
     {},
   );
   const [isLoading, setIsLoading] = useState(true);
+  // A failed check used to be rethrown inside the promise chain, where nothing
+  // caught it, and the page then showed an empty result as a valid
+  // configuration. It is kept as state so the page can say it could not check.
+  const [checkFailed, setCheckFailed] = useState(false);
 
   useEffect(() => {
-    const fetchValidationResults = async () => {
-      try {
-        const results = await getValidationResults();
-        setValidationResults(results);
-      } catch (error) {
-        throw new Error(`Failed to fetch validation results`, { cause: error });
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchValidationResults().catch((error: unknown) => {
-      throw new Error(`Failed to fetch validation results: ${error}`);
-    });
+    getValidationResults()
+      .then(setValidationResults)
+      .catch(() => setCheckFailed(true))
+      .finally(() => setIsLoading(false));
   }, []);
 
-  return { validationResults, isLoading };
+  return { validationResults, isLoading, checkFailed };
 };
 
+function CheckFailed({ variant }: Readonly<{ variant: ConfigVariant }>) {
+  return (
+    <Paper
+      sx={
+        variant === 'page'
+          ? { ...paperStyle, width: 'min(60vw, 390px)' }
+          : { ...paperStyle, width: '100%', marginTop: 0 }
+      }
+    >
+      <Typography variant="h4" sx={typographyStyle}>
+        The configuration could not be checked. Please try again later, or
+        contact the administrator of your DTaaS installation.
+      </Typography>
+    </Paper>
+  );
+}
+
 const Config = (props: { role: string; variant?: ConfigVariant }) => {
-  const { validationResults, isLoading } = useValidationResults();
+  const { validationResults, isLoading, checkFailed } = useValidationResults();
   const variant = props.variant ?? 'page';
 
   if (isLoading) {
     return loadingComponent();
+  }
+
+  if (checkFailed) {
+    return <CheckFailed variant={variant} />;
   }
 
   return props.role === 'user' ? (

@@ -62,4 +62,30 @@ describe('decoding a broker message', () => {
     });
     expect(sampleFrom('room/temp', 'hello', 'measured', 1)).toBeUndefined();
   });
+
+  it('takes the channel a JSON payload names, when the SDK knows it', () => {
+    expect(
+      sampleFrom(
+        'room/temp',
+        '{"value": 1, "channel": "simulated"}',
+        'measured',
+        1,
+      )?.channel,
+    ).toBe('simulated');
+    expect(
+      sampleFrom(
+        'room/temp',
+        '{"value": 1, "channel": "guessed"}',
+        'measured',
+        1,
+      )?.channel,
+    ).toBe('measured');
+  });
+
+  it('names the twin when the source knows it, and leaves it empty otherwise', () => {
+    expect(sampleFrom('room/temp', '7', 'measured', 1, 'pump')?.twinId).toBe(
+      'pump',
+    );
+    expect(sampleFrom('room/temp', '7', 'measured', 1)?.twinId).toBe('');
+  });
 });

@@ -7,13 +7,13 @@
  * JSON, is skipped, so a newer gateway can add events.
  */
 
-import {
-  CHANNELS,
-  type Channel,
-  type ConnectionState,
-  type SignalSink,
+import type {
+  Channel,
+  ConnectionState,
+  SignalSink,
 } from '@into-cps-association/dtaas-sdk';
-import { sampleFrom } from 'viz/payload';
+import { recordDelivery } from 'viz/deliveryTimings';
+import { channelOf, sampleFrom } from 'viz/payload';
 import type { SseEvent } from 'viz/sseStream';
 
 /** Where the events of one stream go. */
@@ -27,7 +27,6 @@ export interface StreamTarget {
 }
 
 const STATES: ReadonlySet<unknown> = new Set(['connecting', 'live', 'down']);
-const KNOWN_CHANNELS: ReadonlySet<unknown> = new Set(CHANNELS);
 
 function parsed(data: string): Record<string, unknown> | undefined {
   try {
@@ -48,13 +47,16 @@ function receivedTime(value: unknown): number {
 
 /** Hand one forwarded broker message to the sinks of its path. */
 function deliverSample(data: Record<string, unknown>, target: StreamTarget) {
+  const arrivedAt = Date.now();
   if (typeof data.path !== 'string' || typeof data.payload !== 'string') return;
-  const channel = KNOWN_CHANNELS.has(data.channel)
-    ? (data.channel as Channel)
-    : target.channel;
+  const channel = channelOf(data.channel) ?? target.channel;
   const receivedAt = receivedTime(data.receivedAt);
-  const sample = sampleFrom(data.path, data.payload, channel, receivedAt);
-  if (sample) target.sinksOf(data.path).forEach((sink) => sink(sample));
+  // The gateway names the twin whose committed declaration lists the path.
+  const twin = typeof data.twin === 'string' ? data.twin : '';
+  const sample = sampleFrom(data.path, data.payload, channel, receivedAt, twin);
+  if (!sample) return;
+  recordDelivery({ path: data.path, ts: sample.ts, receivedAt, arrivedAt });
+  target.sinksOf(data.path).forEach((sink) => sink(sample));
 }
 
 /** What each event of the stream does. */

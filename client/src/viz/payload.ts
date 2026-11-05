@@ -4,7 +4,9 @@
  *
  * Three payloads are understood, in the order they are tried:
  *
- * - JSON with a `value`, and optionally `ts` or `timestamp` and `quality`.
+ * - JSON with a `value`, and optionally `ts` or `timestamp`, `quality` and
+ *   `channel`. A `unit` or `run` is not kept, since a `SignalSample` has no
+ *   field for either.
  * - A bare number, such as `21.4`.
  * - The comma-separated line of the DTaaS examples,
  *   `timestamp,measurement,type,unit,value`, as in
@@ -16,11 +18,12 @@
  * arrived otherwise.
  */
 
-import type {
-  Channel,
-  SignalQuality,
-  SignalSample,
-  SignalValue,
+import {
+  CHANNELS,
+  type Channel,
+  type SignalQuality,
+  type SignalSample,
+  type SignalValue,
 } from '@into-cps-association/dtaas-sdk';
 
 export interface Decoded {
@@ -46,6 +49,12 @@ function timeOf(value: unknown): number | undefined {
 }
 
 const QUALITIES: ReadonlySet<unknown> = new Set(['good', 'stale', 'bad']);
+const KNOWN_CHANNELS: ReadonlySet<unknown> = new Set(CHANNELS);
+
+/** A channel the SDK names, or undefined for any other value. */
+export function channelOf(value: unknown): Channel | undefined {
+  return KNOWN_CHANNELS.has(value) ? (value as Channel) : undefined;
+}
 
 /** A quality the SDK names, or undefined for any other value. */
 export function qualityOf(value: unknown): SignalQuality | undefined {
@@ -62,9 +71,12 @@ export function isSignalValue(value: unknown): value is SignalValue {
 function fromObject(data: Record<string, unknown>): Decoded | undefined {
   if (!isSignalValue(data.value)) return undefined;
   // A quality the SDK does not name is dropped, and the reading still counts.
+  // A publisher that names its channel, such as a simulator writing to the
+  // same topic as the sensor, is believed over the declaration.
   return {
     value: data.value,
     ts: timeOf(data.ts ?? data.timestamp),
+    channel: channelOf(data.channel),
     quality: qualityOf(data.quality),
   };
 }
@@ -100,17 +112,22 @@ export function decodePayload(text: string): Decoded | undefined {
   return fromJson(text.trim()) ?? fromLine(text.trim());
 }
 
-/** A sample for `path` from a payload, or undefined when it is unreadable. */
+/**
+ * A sample for `path` from a payload, or undefined when it is unreadable.
+ * `twinId` names the twin whose declaration lists the path, when the source
+ * knows it.
+ */
 export function sampleFrom(
   path: string,
   text: string,
   channel: Channel,
   now: number,
+  twinId = '',
 ): SignalSample | undefined {
   const decoded = decodePayload(text);
   if (!decoded) return undefined;
   return {
-    twinId: '',
+    twinId,
     signalPath: path,
     channel: decoded.channel ?? channel,
     ts: decoded.ts ?? now,

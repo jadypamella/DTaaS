@@ -1,5 +1,6 @@
 import createGitService, {
   commitAction,
+  GitFileMissing,
   type GitApi,
 } from 'extension/gitClient';
 
@@ -26,6 +27,23 @@ describe('the git service', () => {
       'dev',
     );
     expect([...bytes]).toEqual([72, 105]);
+  });
+
+  it('reports a file GitLab does not have as missing', async () => {
+    const { api, git } = fakeApi();
+    const notFound = Object.assign(new Error('404 File Not Found'), {
+      cause: { response: { status: 404 } },
+    });
+    api.RepositoryFiles.show.mockRejectedValueOnce(notFound);
+    const serverError = Object.assign(new Error('500'), {
+      cause: { response: { status: 500 } },
+    });
+    api.RepositoryFiles.show.mockRejectedValueOnce(serverError);
+
+    await expect(git.read('g/r', 'a.txt', 'dev')).rejects.toBeInstanceOf(
+      GitFileMissing,
+    );
+    await expect(git.read('g/r', 'a.txt', 'dev')).rejects.toBe(serverError);
   });
 
   it('reads from main when no ref is given', async () => {

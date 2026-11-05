@@ -51,10 +51,14 @@ function contributions(extensions: readonly DtaasExtension[]) {
   };
 }
 
+/** A visualisation.json read as bytes, checked against the SDK schema. */
+export function parseVisualisationFile(bytes: Uint8Array, where: string) {
+  return parsed(JSON.parse(new TextDecoder().decode(bytes)), where);
+}
+
 async function load(contents: ContentsService, dt: DigitalTwinSummary) {
   if (!(await contents.exists(fileOf(dt)))) return null;
-  const text = new TextDecoder().decode(await contents.get(fileOf(dt)));
-  return parsed(JSON.parse(text), fileOf(dt));
+  return parseVisualisationFile(await contents.get(fileOf(dt)), fileOf(dt));
 }
 
 async function save(

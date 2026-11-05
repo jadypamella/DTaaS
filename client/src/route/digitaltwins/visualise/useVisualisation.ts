@@ -6,8 +6,8 @@ import { useEffect, useState } from 'react';
 import type {
   ContentsService,
   VisualisationAsset,
-  VizService,
 } from '@into-cps-association/dtaas-sdk';
+import type { ReadDeclaration } from 'route/digitaltwins/visualise/committedVisualisation';
 
 /**
  * The detail of a failure goes to the console, where a developer looks, and
@@ -45,16 +45,10 @@ export function useTwins(contents: ContentsService, directory: string) {
 }
 
 /** The visualisation of one twin, or that it has none. */
-function loadTwin(
-  viz: VizService,
-  directory: string,
-  twin: string,
-): Promise<Loaded> {
-  return viz
-    .load({ name: twin, path: `${directory}/${twin}`, files: [] })
-    .then((asset): Loaded =>
-      asset ? { state: 'ready', asset } : { state: 'none' },
-    );
+function loadTwin(read: ReadDeclaration, twin: string): Promise<Loaded> {
+  return read(twin).then((asset): Loaded =>
+    asset ? { state: 'ready', asset } : { state: 'none' },
+  );
 }
 
 /** Why a twin's visualisation could not be read, for the screen. */
@@ -64,21 +58,17 @@ const failed = (reason: Error): Loaded => ({
 });
 
 /**
- * The visualisation.json of one twin, read through the core. The answer is
- * kept with the twin it belongs to, so a twin switched before its file
- * arrived shows as loading and never shows the old one.
+ * The visualisation.json of one twin, read by `read`. The answer is kept
+ * with the twin it belongs to, so a twin switched before its file arrived
+ * shows as loading and never shows the old one.
  */
-export function useVisualisation(
-  viz: VizService,
-  directory: string,
-  twin: string,
-): Loaded {
+export function useVisualisation(read: ReadDeclaration, twin: string): Loaded {
   const [answer, setAnswer] = useState<{ twin: string; loaded: Loaded }>();
   useEffect(() => {
     if (!twin) return;
-    loadTwin(viz, directory, twin)
+    loadTwin(read, twin)
       .then((loaded) => setAnswer({ twin, loaded }))
       .catch((reason: Error) => setAnswer({ twin, loaded: failed(reason) }));
-  }, [viz, directory, twin]);
+  }, [read, twin]);
   return answer?.twin === twin ? answer.loaded : { state: 'loading' };
 }

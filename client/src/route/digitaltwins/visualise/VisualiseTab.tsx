@@ -1,7 +1,8 @@
 /**
  * The Visualise tab of the Digital Twins page: a twin drawn from the
- * `visualisation.json` in its folder, coloured by its live signals, with one
- * timeline for every pane.
+ * `visualisation.json` committed in its folder, coloured by its live signals,
+ * with one timeline for every pane. The committed copy is the one the signals
+ * gateway authorises against, so both read the same declaration.
  */
 
 import { useState } from 'react';
@@ -19,9 +20,11 @@ import {
   useVisualisation,
   type Loaded,
 } from 'route/digitaltwins/visualise/useVisualisation';
+import committedReader from 'route/digitaltwins/visualise/committedVisualisation';
 
 const { contents, library, signals, viz } = sharedServices;
 const DIRECTORY = library.conventions.digitalTwinsDirectory;
+const readCommitted = committedReader(sharedServices);
 
 function Drawing({ loaded }: { readonly loaded: Loaded }) {
   if (loaded.state === 'loading') return <CircularProgress sx={{ m: 2 }} />;
@@ -31,7 +34,9 @@ function Drawing({ loaded }: { readonly loaded: Loaded }) {
   if (loaded.state === 'none') {
     return (
       <Alert severity="info">
-        This twin has no visualisation.json in its folder yet.
+        This twin has no visualisation.json committed in GitLab yet. The
+        Visualise tab and the signals gateway read the committed file, so commit
+        it to the configured branch to see the twin here.
       </Alert>
     );
   }
@@ -73,7 +78,7 @@ function TwinPicker({ twins, twin, onChange }: TwinPickerProps) {
 function VisualiseTab() {
   const { twins, error } = useTwins(contents, DIRECTORY);
   const [twin, setTwin] = useState('');
-  const loaded = useVisualisation(viz, DIRECTORY, twin);
+  const loaded = useVisualisation(readCommitted, twin);
   if (error) {
     return (
       <Alert severity="error">The digital twins could not be listed.</Alert>

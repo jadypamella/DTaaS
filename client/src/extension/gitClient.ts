@@ -41,6 +41,22 @@ export function sessionApi(): GitApi {
   }) as unknown as GitApi;
 }
 
+/** A file that is not in the repository at the ref asked for. */
+export class GitFileMissing extends Error {
+  constructor(repo: string, path: string, ref: string) {
+    super(`${path} is not in ${repo} at ${ref}`);
+    this.name = 'GitFileMissing';
+  }
+}
+
+// GitLab answers a missing file, branch or project with 404. Gitbeaker keeps
+// the response on the error's cause, so the status is read from there.
+function isNotFound(error: unknown): boolean {
+  const cause = (error as { cause?: { response?: { status?: unknown } } })
+    ?.cause;
+  return cause?.response?.status === 404;
+}
+
 function fromBase64(content: string): Uint8Array {
   return Uint8Array.from(atob(content), (char) => char.codePointAt(0) ?? 0);
 }
@@ -70,8 +86,13 @@ export default function createGitService(
 ): GitService {
   return {
     async read(repo, path, ref = 'main') {
-      const file = await api().RepositoryFiles.show(repo, path, ref);
-      return fromBase64(file.content);
+      try {
+        const file = await api().RepositoryFiles.show(repo, path, ref);
+        return fromBase64(file.content);
+      } catch (error) {
+        if (isNotFound(error)) throw new GitFileMissing(repo, path, ref);
+        throw error;
+      }
     },
     async commit(repo, branch, changes, message): Promise<CommitResult> {
       const commit = await api().Commits.create(

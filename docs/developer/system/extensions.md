@@ -73,10 +73,11 @@ from RabbitMQ over AMQP as the read-only service user `dtaas-signals`, and
 their history from InfluxDB with a read-only token. The digital twins publish
 to RabbitMQ. The browser opens no connection to the broker or to InfluxDB.
 
-The Visualise tab draws the `visualisation.json` of the workspace, while the
-gateway authorises from the copy committed on `gitlab-branch`. A topic added in
-the workspace therefore shows no readings until the file is committed and
-pushed. The
+The Visualise tab and the gateway read the same declaration: the
+`visualisation.json` committed on the branch of the user's project
+(`BRANCH_NAME` in the client settings, `gitlab-branch` in the gateway). An
+edit in the workspace is therefore neither drawn nor streamed until it is
+committed and pushed. The
 [codebase page](../codebase/signals-ms.md) describes the gateway, and the
 [admin pages](../../admin/servers/signals/config.md) its deployment.
 

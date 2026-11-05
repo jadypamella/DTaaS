@@ -103,10 +103,12 @@ describe('the visualisation service', () => {
     );
 
     // The extension's own embed is not offered next to the core's.
-    expect(viz.substrates.list()).toEqual(['image', 'embed', 'pid']);
+    expect(viz.substrates.list()).toEqual(['image', 'embed', 'aec', 'pid']);
     await expect(viz.substrates.get('pid')).resolves.toBe(adapter);
     expect(factory).toHaveBeenCalledWith(host);
-    await expect(viz.substrates.get('aec')).rejects.toThrow('No substrate aec');
+    await expect(viz.substrates.get('mesh')).rejects.toThrow(
+      'No substrate mesh',
+    );
     expect(viz.anchorKinds).toHaveLength(1);
     expect(viz.presets).toHaveLength(1);
   });

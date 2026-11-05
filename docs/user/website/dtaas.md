@@ -251,8 +251,10 @@ page explains them further.
 The **Visualise** tab draws a digital twin with its live readings, for
 example a photograph of a site with each sensor marked on it, next to a
 dashboard of the same sensors. Choose a twin from the **Digital Twin**
-list. The tab reads the `visualisation.json` file in the folder of that
-twin, under `digital_twins/`, and says so when the folder has none. The
+list. The tab reads the `visualisation.json` file committed in GitLab in
+the folder of that twin, under `digital_twins/`, and says so when none is
+committed. A change made in the workspace shows once it is committed and
+pushed. The
 [visualisation schema](https://github.com/INTO-CPS-Association/dtaas-sdk/blob/main/docs/visualisation-schema.md)
 describes the format of that file.
 

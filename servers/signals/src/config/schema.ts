@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { CHANNELS } from '../authz/policy.js';
 
 const TRUE_WORDS = new Set(['true', '1', 'yes', 'y']);
 const FALSE_WORDS = new Set(['false', '0', 'no', 'n']);
@@ -43,11 +44,21 @@ export const configSchema = z
     'gitlab-timeout': positiveInt.default(5000),
     'forwarded-user-header': text.toLowerCase().default(''),
     'gitlab-client-id': text.default(''),
+    // Lets the gateway start without gitlab-client-id. Only for a local
+    // development stack, never for a deployment that real users reach.
+    'allow-any-gitlab-client': booleanSchema.default(false),
     'identity-cache-ttl': positiveInt.default(MINUTE),
     'projects-cache-ttl': positiveInt.default(MINUTE),
+    'twin-index-cache-ttl': positiveInt.default(10 * MINUTE),
+    'twins-folder': text.min(1).default('digital_twins'),
+    'default-channel': z.enum(CHANNELS).default('measured'),
     'rabbitmq-url': amqpUrl.default('amqp://localhost:5672'),
     'rabbitmq-user': text.min(1).default('dtaas-signals'),
     'rabbitmq-password-file': text.default(''),
+    'rabbitmq-port': positiveInt.default(5672),
+    'rabbitmq-tls-port': positiveInt.default(5671),
+    'rabbitmq-exchange': text.min(1).default('amq.topic'),
+    'rabbitmq-queue-prefix': text.min(1).default('dtaas-signals.'),
     'vhost-template': ownerTemplate.default('{owner}'),
     'influx-url': httpUrl.default('http://localhost:8086'),
     'influx-tokens-file': text.default(''),
@@ -58,7 +69,9 @@ export const configSchema = z
     'max-path-length': positiveInt.default(256),
     'max-streams-per-user': positiveInt.default(4),
     'max-message-bytes': positiveInt.default(64 * 1024),
+    'max-backlog-bytes': positiveInt.default(1024 * 1024),
     'stream-max-age': positiveInt.default(10 * MINUTE),
+    'stream-recheck-interval': positiveInt.default(MINUTE),
     'keep-alive-interval': positiveInt.default(15_000),
     'retry-interval': positiveInt.default(5000),
     'range-max-span': positiveInt.default(7 * DAY),

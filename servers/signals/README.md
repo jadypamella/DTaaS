@@ -14,8 +14,11 @@ the platform credentials.
    `/oauth/token/info` for its expiry and `/api/v4/user` for the user, and
    caches the answer for 60 s under the SHA-256 of the token. With
    `gitlab-client-id` set, a token issued to another OAuth application is
-   refused. Left empty, the check is off and the gateway logs a warning at
-   startup.
+   refused. Left empty while `gitlab-url` is set, the gateway refuses to
+   start. A local development stack without an OAuth application can set
+   `allow-any-gitlab-client: true` (or `SIGNALS_ALLOW_ANY_GITLAB_CLIENT=true`)
+   to start anyway, with a warning. Never set it on a deployment that real
+   users reach.
 1. With the user's own token, the gateway lists the projects of the
    `gitlab-group` group that the user can read. In DTaaS the twins of user
    `alice` live in the project `DTaaS/alice` under `digital_twins/<twin>`.
@@ -27,6 +30,18 @@ the platform credentials.
    declares. Everything else is refused, and any error while deciding refuses
    every path. Each decision is logged with the user, the action, the path and
    the outcome, never with a token.
+1. A request names paths, not owners. When two projects the user can read
+   declare the same topic, the user's own project wins and the collision is
+   logged. `check()` takes the owner with the path, so it never confuses two
+   owners' signals.
+1. While a stream is open, the decision is asked again every
+   `stream-recheck-interval` (60 s). A path the user may no longer read is sent
+   in a `refused` event and the stream ends, so the client reconnects without
+   it.
+1. The declaration is checked against a copy of the transport part of the
+   SDK contract (`src/authz/contract.schema.ts`). A file the contract rejects
+   declares nothing. Transports other than `mqtt` and `influx` are valid and
+   logged as not streamed by the gateway.
 
 The decision sits behind a small interface, `AccessPolicy` in
 `src/authz/policy.ts`, with `check(subject, action, resource)` and
@@ -42,8 +57,9 @@ All routes are under `/signals`. The default port is `4004`.
 | `GET /signals/health` | `{"status":"ok"}`, with no other detail |
 | `POST /signals/stream` | Live samples as server-sent events |
 | `POST /signals/range` | Past samples as JSON |
+| `GET /signals/stats` | What the user's ended streams forwarded and dropped |
 
-`stream` and `range` need the header `Authorization: Bearer <token>`.
+`stream`, `range` and `stats` need the header `Authorization: Bearer <token>`.
 
 ### Stream
 
@@ -63,18 +79,31 @@ event: state
 data: {"state":"live"}
 
 event: sample
-data: {"path":"alice/pump/flow","channel":"measured","receivedAt":1760000000000,"payload":"{\"value\":3}"}
+data: {"path":"alice/pump/flow","twin":"pump","channel":"measured","receivedAt":1760000000000,"payload":"{\"value\":3}"}
 
 : keep-alive
 ```
 
 - `payload` is the raw text of the broker message. The client decodes it.
+- `twin` is the twin whose committed declaration lists the path.
 - `refused` lists the paths that are not served, once, with no reason.
 - `state` turns `down` when the broker connection is lost, and the stream
   ends. The client opens a new one after the `retry` wait.
 - A `: keep-alive` comment comes every 15 s.
 - The stream ends after `stream-max-age` (10 min) or when the token expires,
   whichever comes first.
+- When it ends, the gateway logs one JSON line with the user, the number of
+  paths, the duration and the counts of forwarded and dropped samples:
+
+  ```json
+  {"user":"alice","action":"stream-end","paths":2,"durationMs":60000,"forwarded":118,"dropped":{"tooLarge":0,"congested":2}}
+  ```
+
+  `tooLarge` counts messages over `max-message-bytes`, and `congested` the
+  samples dropped while more than `max-backlog-bytes` (1 MB) waited unsent
+  because the client read slower than they arrived. `GET /signals/stats`
+  answers the same counts, summed over the user's ended streams since the
+  gateway started.
 
 ### Range
 
@@ -119,7 +148,10 @@ A range is at most `range-max-span` (7 days). An answer holds at most
   `vhost-template` (`{owner}` by default, because the DTaaS services CLI
   creates one vhost per user). Each connection has one exclusive auto-delete
   queue `dtaas-signals.<uuid>`, and streams of the same signal share its
-  binding. Messages over `max-message-bytes` (64 KB) are dropped.
+  binding. Messages over `max-message-bytes` (64 KB) are dropped and counted.
+  The exchange, the queue prefix and the default ports are the config keys
+  `rabbitmq-exchange`, `rabbitmq-queue-prefix`, `rabbitmq-port` and
+  `rabbitmq-tls-port`.
 - **History**: InfluxDB 2, queried over `/api/v2/query` with Flux whose text
   is fixed and whose values all travel as `params`. The org and bucket come
   from the twin's `influx` transport, and only when they equal

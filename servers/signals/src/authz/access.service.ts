@@ -47,9 +47,12 @@ export default class AccessService {
     try {
       const targets = await this.policy.listResources(subject, action);
       const readable = new Map<string, SignalTarget>();
-      // The first twin to declare a topic names its channel and history.
       targets.forEach((target) => {
-        if (!readable.has(target.path)) readable.set(target.path, target);
+        const first = readable.get(target.path);
+        if (first === undefined) readable.set(target.path, target);
+        else if (this.prefers(subject, target, first)) {
+          readable.set(target.path, target);
+        }
       });
       return readable;
     } catch (error) {
@@ -57,6 +60,24 @@ export default class AccessService {
       this.logger.warn(`Refusing every path of ${subject.username}: ${reason}`);
       return new Map();
     }
+  }
+
+  // A request names a path, not an owner. When two owners the user can read
+  // declare the same topic, the user's own twin wins, so a project shared
+  // with the user cannot take over a topic of the user's own. Between twins
+  // of one owner, or of two other owners, the first declaration wins.
+  private prefers(
+    subject: Subject,
+    candidate: SignalTarget,
+    first: SignalTarget,
+  ): boolean {
+    if (candidate.owner === first.owner) return false;
+    this.logger.warn(
+      `${first.owner} and ${candidate.owner} both declare ${candidate.path}`,
+    );
+    return (
+      candidate.owner === subject.username && first.owner !== subject.username
+    );
   }
 
   // One line per decision, with no token: who, what, which signal, outcome.

@@ -5,6 +5,7 @@ import type {
   SignalBroker,
 } from '../broker/broker.js';
 import { topicToRoutingKey } from '../broker/routing-key.js';
+import { type DeliveryCounts, emptyCounts } from './delivery-stats.js';
 import type SseWriter from './sse-writer.js';
 
 export type SessionOptions = {
@@ -12,7 +13,11 @@ export type SessionOptions = {
   keepAliveMs: number;
   lifetimeMs: number;
   maxMessageBytes: number;
+  recheckMs: number;
 };
+
+/** Asks the policy again, and answers the allowed paths now refused. */
+export type Recheck = () => Promise<readonly string[]>;
 
 function byVhost(
   targets: readonly SignalTarget[],
@@ -27,9 +32,11 @@ function byVhost(
 /** One open stream: the allowed signals of one request, until it ends. */
 export default class StreamSession {
   readonly done: Promise<void>;
+  readonly counts: DeliveryCounts = emptyCounts();
   private readonly subscriptions: BrokerSubscription[] = [];
   private readonly timers: NodeJS.Timeout[] = [];
   private ended = false;
+  private rechecking = false;
   private finish: () => void = () => undefined;
 
   constructor(
@@ -37,6 +44,7 @@ export default class StreamSession {
     private readonly broker: SignalBroker,
     private readonly targets: readonly SignalTarget[],
     private readonly options: SessionOptions,
+    private readonly recheck?: Recheck,
   ) {
     this.done = new Promise((resolve) => {
       this.finish = resolve;
@@ -81,6 +89,31 @@ export default class StreamSession {
       Math.max(0, this.options.lifetimeMs),
     );
     this.timers.push(keepAlive, lifetime);
+    if (this.recheck !== undefined) {
+      const recheck = setInterval(
+        () => this.recheckAccess(),
+        this.options.recheckMs,
+      );
+      this.timers.push(recheck);
+    }
+  }
+
+  // Access is decided when the stream opens. A user removed from a project
+  // while the stream runs would keep reading it until the stream's age runs
+  // out, so the decision is asked again on an interval. A revoked path is
+  // sent as refused and the stream ends, so the client reconnects without it.
+  private async recheckAccess(): Promise<void> {
+    if (this.rechecking || this.ended || this.recheck === undefined) return;
+    this.rechecking = true;
+    try {
+      const revoked = await this.recheck();
+      if (revoked.length > 0 && !this.ended) {
+        this.sse.event('refused', { paths: revoked });
+        this.down();
+      }
+    } finally {
+      this.rechecking = false;
+    }
   }
 
   private async bind(
@@ -105,10 +138,18 @@ export default class StreamSession {
     message: BrokerMessage,
   ): void {
     if (target === undefined || this.ended) return;
-    if (message.body.length > this.options.maxMessageBytes) return;
-    if (this.sse.isCongested()) return;
+    if (message.body.length > this.options.maxMessageBytes) {
+      this.counts.dropped.tooLarge += 1;
+      return;
+    }
+    if (this.sse.isCongested()) {
+      this.counts.dropped.congested += 1;
+      return;
+    }
+    this.counts.forwarded += 1;
     this.sse.event('sample', {
       path: target.path,
+      twin: target.twin,
       channel: target.channel,
       receivedAt: Date.now(),
       payload: message.body.toString('utf8'),

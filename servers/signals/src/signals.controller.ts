@@ -25,6 +25,7 @@ import { parseRangeRequest, parseStreamRequest } from './dto/requests.js';
 import HistoryService, {
   type HistoryAnswer,
 } from './history/history.service.js';
+import DeliveryStats, { type DeliveryCounts } from './stream/delivery-stats.js';
 import StreamService from './stream/stream.service.js';
 import StreamSlots from './stream/stream-slots.js';
 
@@ -42,6 +43,7 @@ export default class SignalsController {
     private readonly streams: StreamService,
     private readonly slots: StreamSlots,
     private readonly history: HistoryService,
+    private readonly stats: DeliveryStats,
   ) {} // eslint-disable-line no-empty-function
 
   @Get('health')
@@ -68,10 +70,20 @@ export default class SignalsController {
       );
       // Nothing the user may read: refuse before any binding is made.
       if (decision.allowed.length === 0) throw new ForbiddenException();
-      await this.streams.run(response, user.identity, decision);
+      const allowed = decision.allowed.map((target) => target.path);
+      const recheck = async () =>
+        (await this.access.decide(subjectOf(user), 'stream', allowed)).refused;
+      await this.streams.run(response, user.identity, decision, recheck);
     } finally {
       release();
     }
+  }
+
+  /** What the user's ended streams forwarded and dropped, since startup. */
+  @Get('stats')
+  @UseGuards(SignalsAuthGuard)
+  deliveryStats(@Req() request: AuthenticatedRequest): DeliveryCounts {
+    return this.stats.of(userOf(request).identity.id);
   }
 
   @Post('range')

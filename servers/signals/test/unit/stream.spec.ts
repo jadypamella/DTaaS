@@ -1,9 +1,10 @@
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
-import { HttpException } from '@nestjs/common';
+import { HttpException, Logger } from '@nestjs/common';
 import type { SignalTarget } from 'src/authz/policy';
+import DeliveryStats from 'src/stream/delivery-stats';
 import SseWriter from 'src/stream/sse-writer';
 import StreamService from 'src/stream/stream.service';
-import StreamSession from 'src/stream/stream-session';
+import StreamSession, { type Recheck } from 'src/stream/stream-session';
 import StreamSlots from 'src/stream/stream-slots';
 import testConfig from 'test/helpers/config';
 import FakeBroker from 'test/helpers/fake-broker';
@@ -21,16 +22,27 @@ const OPTIONS = {
   keepAliveMs: 15_000,
   lifetimeMs: 600_000,
   maxMessageBytes: 16,
+  recheckMs: 60_000,
 };
+const MAX_BACKLOG = 1024 * 1024;
 
-function sessionWith(broker: FakeBroker, response = new FakeResponse()) {
+function sessionWith(
+  broker: FakeBroker,
+  response = new FakeResponse(),
+  recheck?: Recheck,
+) {
   const session = new StreamSession(
-    new SseWriter(response.asResponse()),
+    new SseWriter(response.asResponse(), MAX_BACKLOG),
     broker,
     [FLOW],
     OPTIONS,
+    recheck,
   );
   return { session, response };
+}
+
+function serviceWith(broker = new FakeBroker(), stats = new DeliveryStats()) {
+  return new StreamService(testConfig(), broker, stats);
 }
 
 describe('StreamSession', () => {
@@ -115,6 +127,57 @@ describe('StreamSession', () => {
     expect(response.text).not.toContain('event: sample');
     session.end();
   });
+
+  it('counts forwarded samples and each reason a sample is dropped', async () => {
+    const broker = new FakeBroker();
+    const { session, response } = sessionWith(broker);
+    await session.start([]);
+    broker.publish('alice', 'alice.pump.flow', '1');
+    broker.publish('alice', 'alice.pump.flow', '2');
+    broker.publish('alice', 'alice.pump.flow', 'x'.repeat(17));
+    response.writableLength = MAX_BACKLOG + 1;
+    broker.publish('alice', 'alice.pump.flow', '3');
+    expect(session.counts).toEqual({
+      forwarded: 2,
+      dropped: { tooLarge: 1, congested: 1 },
+    });
+    session.end();
+  });
+
+  it('ends the stream when access is revoked while it runs', async () => {
+    jest.useFakeTimers();
+    const broker = new FakeBroker();
+    let revoked: string[] = [];
+    const { session, response } = sessionWith(
+      broker,
+      new FakeResponse(),
+      async () => revoked,
+    );
+    await session.start([]);
+    await jest.advanceTimersByTimeAsync(60_000);
+    expect(response.writableEnded).toBe(false);
+    revoked = ['alice/pump/flow'];
+    await jest.advanceTimersByTimeAsync(60_000);
+    await session.done;
+    expect(response.text).toContain(
+      'event: refused\ndata: {"paths":["alice/pump/flow"]}',
+    );
+    expect(response.text).toContain('{"state":"down"}');
+    expect(broker.bindings).toHaveLength(0);
+    broker.publish('alice', 'alice.pump.flow', '1');
+    expect(response.text).not.toContain('event: sample');
+  });
+});
+
+describe('SseWriter', () => {
+  it('is congested only past the configured backlog', () => {
+    const response = new FakeResponse();
+    const writer = new SseWriter(response.asResponse(), 10);
+    response.writableLength = 10;
+    expect(writer.isCongested()).toBe(false);
+    response.writableLength = 11;
+    expect(writer.isCongested()).toBe(true);
+  });
 });
 
 describe('StreamService', () => {
@@ -122,7 +185,7 @@ describe('StreamService', () => {
     jest.useFakeTimers();
     const broker = new FakeBroker();
     const response = new FakeResponse();
-    const service = new StreamService(testConfig(), broker);
+    const service = serviceWith(broker);
     const identity = {
       id: 1,
       username: 'a',
@@ -141,7 +204,7 @@ describe('StreamService', () => {
 
   it('ends the session when the client goes away', async () => {
     const response = new FakeResponse();
-    const service = new StreamService(testConfig(), new FakeBroker());
+    const service = serviceWith();
     const identity = { id: 1, username: 'a', email: '' };
     const running = service.run(response.asResponse(), identity, {
       allowed: [FLOW],
@@ -151,6 +214,46 @@ describe('StreamService', () => {
     response.emit('close');
     await running;
     expect(response.writableEnded).toBe(true);
+  });
+});
+
+describe('Delivery stats', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('logs one line per ended stream and adds it to the user totals', async () => {
+    const lines: string[] = [];
+    jest
+      .spyOn(Logger.prototype, 'log')
+      .mockImplementation((message: unknown) => {
+        lines.push(String(message));
+      });
+    const broker = new FakeBroker();
+    const stats = new DeliveryStats();
+    const response = new FakeResponse();
+    const identity = { id: 3, username: 'alice', email: '' };
+    const running = serviceWith(broker, stats).run(
+      response.asResponse(),
+      identity,
+      { allowed: [FLOW], refused: [] },
+    );
+    await new Promise((resolve) => setImmediate(resolve));
+    broker.publish('alice', 'alice.pump.flow', '1');
+    response.emit('close');
+    await running;
+    expect(JSON.parse(lines[0])).toMatchObject({
+      user: 'alice',
+      action: 'stream-end',
+      paths: 1,
+      forwarded: 1,
+      dropped: { tooLarge: 0, congested: 0 },
+    });
+    expect(stats.of(3).forwarded).toBe(1);
+    expect(stats.of(4)).toEqual({
+      forwarded: 0,
+      dropped: { tooLarge: 0, congested: 0 },
+    });
   });
 });
 

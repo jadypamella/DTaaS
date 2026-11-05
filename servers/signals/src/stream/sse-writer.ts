@@ -1,13 +1,14 @@
 import type { Response } from 'express';
 
-// A client that reads slower than signals arrive would make the server
-// buffer without bound. Past this backlog, new samples are dropped.
-const MAX_BACKLOG_BYTES = 1024 * 1024;
-
 /** Server-sent events on one HTTP response. */
 export default class SseWriter {
-  // eslint-disable-next-line no-useless-constructor, no-empty-function
-  constructor(private readonly response: Response) {}
+  // A client that reads slower than signals arrive would make the server
+  // buffer without bound. Past maxBacklogBytes, new samples are dropped.
+  // eslint-disable-next-line no-useless-constructor
+  constructor(
+    private readonly response: Response,
+    private readonly maxBacklogBytes: number,
+  ) {} // eslint-disable-line no-empty-function
 
   open(retryMs: number): void {
     this.response.status(200);
@@ -30,7 +31,7 @@ export default class SseWriter {
   }
 
   isCongested(): boolean {
-    return this.response.writableLength > MAX_BACKLOG_BYTES;
+    return this.response.writableLength > this.maxBacklogBytes;
   }
 
   end(): void {

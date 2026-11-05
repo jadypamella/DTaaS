@@ -6,8 +6,8 @@ import type { BrokerListener } from './broker.js';
 /** Opens an AMQP connection to one virtual host as the service user. */
 export type Connector = (vhost: string) => Promise<ChannelModel>;
 
-export const EXCHANGE = 'amq.topic';
-export const QUEUE_PREFIX = 'dtaas-signals.';
+/** The exchange the MQTT plugin publishes to, and the prefix of our queues. */
+export type LinkNames = { exchange: string; queuePrefix: string };
 
 type LinkSession = { model: ChannelModel; channel: Channel; queue: string };
 
@@ -37,6 +37,7 @@ export default class VhostLink {
     private readonly vhost: string,
     private readonly connect: Connector,
     private readonly onGone: () => void,
+    private readonly names: LinkNames,
   ) {} // eslint-disable-line no-empty-function
 
   add(keys: readonly string[], listener: BrokerListener): Promise<void> {
@@ -46,7 +47,7 @@ export default class VhostLink {
         const { channel, queue } = await this.open();
         for (const key of keys) {
           if (this.table.add(key, listener)) {
-            await channel.bindQueue(queue, EXCHANGE, key);
+            await channel.bindQueue(queue, this.names.exchange, key);
           }
         }
       } catch (error) {
@@ -64,7 +65,7 @@ export default class VhostLink {
       const { channel, queue } = await this.session;
       for (const key of keys) {
         if (this.table.remove(key, listener)) {
-          await channel.unbindQueue(queue, EXCHANGE, key);
+          await channel.unbindQueue(queue, this.names.exchange, key);
         }
       }
       if (this.table.isEmpty()) await this.close();
@@ -109,7 +110,8 @@ export default class VhostLink {
     const channel = await model.createChannel();
     channel.on('error', ignore);
     channel.on('close', () => this.fail());
-    const { queue } = await channel.assertQueue(QUEUE_PREFIX + randomUUID(), {
+    const name = this.names.queuePrefix + randomUUID();
+    const { queue } = await channel.assertQueue(name, {
       exclusive: true,
       autoDelete: true,
       durable: false,

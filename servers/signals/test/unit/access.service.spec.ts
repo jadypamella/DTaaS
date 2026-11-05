@@ -5,8 +5,8 @@ import type { AccessPolicy, SignalTarget } from 'src/authz/policy';
 
 const ALICE = { id: 7, username: 'alice', token: 'secret-token' };
 
-function target(path: string, twin = 'pump'): SignalTarget {
-  return { path, owner: 'alice', twin, channel: 'measured', vhost: 'alice' };
+function target(path: string, twin = 'pump', owner = 'alice'): SignalTarget {
+  return { path, owner, twin, channel: 'measured', vhost: owner };
 }
 
 function policyListing(targets: SignalTarget[] | Error): AccessPolicy {
@@ -39,6 +39,22 @@ describe('AccessService', () => {
     );
     const decision = await service.decide(ALICE, 'stream', ['a/b']);
     expect(decision.allowed[0].twin).toBe('one');
+  });
+
+  it("prefers the user's own twin when two owners declare a topic", async () => {
+    jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    const service = new AccessService(
+      policyListing([
+        target('a/b', 'pump', 'bob'),
+        target('a/b', 'pump', 'alice'),
+        target('a/b', 'pump', 'carol'),
+      ]),
+    );
+    const decision = await service.decide(ALICE, 'stream', ['a/b']);
+    expect(decision.allowed[0]).toMatchObject({
+      owner: 'alice',
+      vhost: 'alice',
+    });
   });
 
   it('refuses every path when the policy fails', async () => {

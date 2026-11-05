@@ -12,7 +12,7 @@ export function visualisationOf(
   };
   const transports: unknown[] = [mqtt];
   if (influx !== undefined) transports.push({ adapter: 'influx', ...influx });
-  return { transports };
+  return { schemaVersion: '1.0', transports };
 }
 
 export const PUMP = visualisationOf(

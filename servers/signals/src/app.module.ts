@@ -16,6 +16,7 @@ import HistoryService from './history/history.service.js';
 import InfluxClient from './history/influx.client.js';
 import SignalsController from './signals.controller.js';
 import SocketAddressThrottlerGuard from './socket-address-throttler.guard.js';
+import DeliveryStats from './stream/delivery-stats.js';
 import StreamService from './stream/stream.service.js';
 import StreamSlots from './stream/stream-slots.js';
 
@@ -48,6 +49,7 @@ import StreamSlots from './stream/stream-slots.js';
       inject: [Config],
     },
     StreamSlots,
+    DeliveryStats,
     StreamService,
     InfluxClient,
     HistoryService,

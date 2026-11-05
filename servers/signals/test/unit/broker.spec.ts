@@ -2,7 +2,7 @@ import { describe, expect, it } from '@jest/globals';
 import AmqpBroker from 'src/broker/amqp.broker';
 import BindingTable from 'src/broker/binding-table';
 import type { BrokerListener, BrokerMessage } from 'src/broker/broker';
-import VhostLink, { QUEUE_PREFIX } from 'src/broker/vhost-link';
+import VhostLink from 'src/broker/vhost-link';
 import testConfig from 'test/helpers/config';
 import { FakeModel } from 'test/helpers/fake-amqp';
 
@@ -39,6 +39,7 @@ describe('VhostLink', () => {
       () => {
         gone += 1;
       },
+      { exchange: 'amq.topic', queuePrefix: 'dtaas-signals.' },
     );
     return { link, gone: () => gone };
   }
@@ -50,7 +51,7 @@ describe('VhostLink', () => {
     const two = recorder();
     await link.add(['a.b'], one.listener);
     await link.add(['a.b', 'a.c'], two.listener);
-    expect(model.channel.queue.startsWith(QUEUE_PREFIX)).toBe(true);
+    expect(model.channel.queue.startsWith('dtaas-signals.')).toBe(true);
     expect(model.channel.operations[0]).toContain('"exclusive":true');
     expect(
       model.channel.operations.filter((op) => op === 'bind amq.topic a.b'),

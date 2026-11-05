@@ -7,16 +7,18 @@ import type {
   BrokerSubscription,
   SignalBroker,
 } from './broker.js';
-import VhostLink, { type Connector, LinkClosedError } from './vhost-link.js';
+import VhostLink, {
+  type Connector,
+  type LinkNames,
+  LinkClosedError,
+} from './vhost-link.js';
 
 const HEARTBEAT_SECONDS = 30;
-const AMQP_PORT = 5672;
-const AMQPS_PORT = 5671;
 
-/** The port in the URL, or the standard one of its scheme. */
-function portOf(url: URL, tls: boolean): number {
+/** The port in the URL, or the configured one of its scheme. */
+function portOf(url: URL, tls: boolean, config: Config): number {
   if (url.port !== '') return Number(url.port);
-  return tls ? AMQPS_PORT : AMQP_PORT;
+  return config.get(tls ? 'rabbitmq-tls-port' : 'rabbitmq-port');
 }
 
 // Node verifies the broker's certificate by default. Saying so here keeps it
@@ -37,7 +39,7 @@ export function amqpConnector(config: Config): Connector {
     const options = {
       protocol: tls ? 'amqps' : 'amqp',
       hostname: url.hostname,
-      port: portOf(url, tls),
+      port: portOf(url, tls, config),
       username: config.get('rabbitmq-user'),
       password,
       vhost,
@@ -54,9 +56,14 @@ export function amqpConnector(config: Config): Connector {
 export default class AmqpBroker implements SignalBroker, OnModuleDestroy {
   private readonly links = new Map<string, VhostLink>();
   private readonly connect: Connector;
+  private readonly names: LinkNames;
 
   constructor(config: Config, connector?: Connector) {
     this.connect = connector ?? amqpConnector(config);
+    this.names = {
+      exchange: config.get('rabbitmq-exchange'),
+      queuePrefix: config.get('rabbitmq-queue-prefix'),
+    };
   }
 
   async subscribe(
@@ -94,9 +101,14 @@ export default class AmqpBroker implements SignalBroker, OnModuleDestroy {
   private linkFor(vhost: string): VhostLink {
     const existing = this.links.get(vhost);
     if (existing !== undefined) return existing;
-    const link: VhostLink = new VhostLink(vhost, this.connect, () => {
-      if (this.links.get(vhost) === link) this.links.delete(vhost);
-    });
+    const link: VhostLink = new VhostLink(
+      vhost,
+      this.connect,
+      () => {
+        if (this.links.get(vhost) === link) this.links.delete(vhost);
+      },
+      this.names,
+    );
     this.links.set(vhost, link);
     return link;
   }

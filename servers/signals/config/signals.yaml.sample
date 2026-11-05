@@ -37,12 +37,21 @@ forwarded-user-header: ''
 # Only tokens GitLab issued to this OAuth application are accepted. Replace
 # the placeholder with the Application ID of the DTaaS client OAuth
 # application, REACT_APP_CLIENT_ID in client.js. Until it is replaced every
-# token is refused. Left empty, the check is off and the gateway logs a
-# warning at startup.
+# token is refused. Left empty, the gateway refuses to start.
 gitlab-client-id: '<DTAAS_CLIENT_APPLICATION_ID>'
+# Lets the gateway start with an empty gitlab-client-id, so any OAuth
+# application's token is accepted. Only for a local development stack.
+allow-any-gitlab-client: false
 # How long an identity and a user's project list are cached (milliseconds).
 identity-cache-ttl: 60000
 projects-cache-ttl: 60000
+# How long the signals read from one project's committed twins are kept
+# (milliseconds). A new commit on gitlab-branch replaces them sooner.
+twin-index-cache-ttl: 600000
+# The folder of each project that holds one folder per twin.
+twins-folder: digital_twins
+# The channel of a topic whose mqtt transport names none.
+default-channel: measured
 
 # RabbitMQ, read over AMQP 0-9-1 with a read-only service user.
 # amqps:// verifies the broker certificate. No credentials in the URL.
@@ -50,6 +59,13 @@ rabbitmq-url: amqp://localhost:5672
 rabbitmq-user: dtaas-signals
 # File holding the service user's password, and nothing else.
 rabbitmq-password-file: ./secrets/rabbitmq-password
+# Ports used when rabbitmq-url names none, for amqp:// and amqps://.
+rabbitmq-port: 5672
+rabbitmq-tls-port: 5671
+# The exchange RabbitMQ's MQTT plugin publishes to, and the name prefix of
+# the gateway's exclusive queues.
+rabbitmq-exchange: amq.topic
+rabbitmq-queue-prefix: dtaas-signals.
 # The vhost of a twin's owner. The DTaaS services CLI creates one per user.
 # It must contain {owner}: one shared vhost would let a user read the topics
 # of another.
@@ -76,8 +92,14 @@ max-path-length: 256
 max-streams-per-user: 4
 # Broker messages larger than this many bytes are dropped.
 max-message-bytes: 65536
+# Bytes a stream may hold unsent while the client reads slower than samples
+# arrive. Past this, new samples are dropped and counted as congested.
+max-backlog-bytes: 1048576
 # A stream closes after this many milliseconds, or when the token expires.
 stream-max-age: 600000
+# Milliseconds between two checks that the user may still read every signal
+# of an open stream. A revoked signal ends the stream.
+stream-recheck-interval: 60000
 # Milliseconds between ': keep-alive' comments on a stream.
 keep-alive-interval: 15000
 # The reconnect wait sent to the client as 'retry:', in milliseconds.

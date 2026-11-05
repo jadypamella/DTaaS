@@ -1,10 +1,10 @@
-import { describe, expect, it } from '@jest/globals';
+import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import { GitLabError } from 'src/auth/gitlab.client';
 import GitLabTwinPolicy from 'src/authz/gitlab-twin.policy';
 import TwinReader from 'src/authz/twin-reader';
 import testConfig from 'test/helpers/config';
 import FakeGitLabClient from 'test/helpers/fake-gitlab-client';
-import { PUMP } from 'test/helpers/twins';
+import { PUMP, visualisationOf } from 'test/helpers/twins';
 
 const ALICE = { id: 7, username: 'alice', token: 'token-a' };
 const PROJECT = { id: 10, path: 'alice', path_with_namespace: 'DTaaS/alice' };
@@ -45,7 +45,33 @@ function policyWith(gitlab: FakeGitLabClient) {
   );
 }
 
+// Alice can read her own project and Bob's, and both declare one topic.
+function sharedTopicGitLab() {
+  const twinOf = (owner: string) => [
+    new RegExp(`files\\/digital_twins%2F${owner}%2Fvisualisation`),
+    () => visualisationOf(['shared/topic']),
+  ];
+  return new FakeGitLabClient([
+    [
+      PROJECTS,
+      () => [
+        PROJECT,
+        { id: 11, path: 'bob', path_with_namespace: 'DTaaS/bob' },
+      ],
+    ],
+    [/repository\/branches\/master$/, () => ({ commit: { id: 's1' } })],
+    [/projects\/10\/repository\/tree/, () => [{ name: 'alice', type: 'tree' }]],
+    [/projects\/11\/repository\/tree/, () => [{ name: 'bob', type: 'tree' }]],
+    twinOf('alice') as [RegExp, () => unknown],
+    twinOf('bob') as [RegExp, () => unknown],
+  ]);
+}
+
 describe('GitLabTwinPolicy', () => {
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it("lists the topics of the twins in the user's projects", async () => {
     const gitlab = gitlabFor({ sha: 's1', projects: [PROJECT] });
     const targets = await policyWith(gitlab).listResources(ALICE, 'stream');
@@ -61,7 +87,10 @@ describe('GitLabTwinPolicy', () => {
     const policy = policyWith(gitlab);
     await expect(policy.listResources(ALICE, 'stream')).resolves.toEqual([]);
     await expect(
-      policy.check(ALICE, 'stream', { path: 'alice/pump/flow' }),
+      policy.check(ALICE, 'stream', {
+        path: 'alice/pump/flow',
+        owner: 'alice',
+      }),
     ).resolves.toEqual({
       allowed: false,
     });
@@ -71,6 +100,7 @@ describe('GitLabTwinPolicy', () => {
     const policy = policyWith(gitlabFor({ sha: 's1', projects: [PROJECT] }));
     const decision = await policy.check(ALICE, 'range', {
       path: 'alice/pump/flow',
+      owner: 'alice',
     });
     expect(decision).toEqual({
       allowed: true,
@@ -132,5 +162,46 @@ describe('GitLabTwinPolicy', () => {
     await expect(
       policyWith(gitlab).listResources(ALICE, 'stream'),
     ).rejects.toBeInstanceOf(GitLabError);
+  });
+
+  it('tells apart two owners that declare the same topic', async () => {
+    const policy = policyWith(sharedTopicGitLab());
+    const path = 'shared/topic';
+    const ofBob = await policy.check(ALICE, 'stream', { path, owner: 'bob' });
+    const ofAlice = await policy.check(ALICE, 'stream', {
+      path,
+      owner: 'alice',
+    });
+    const ofCarol = await policy.check(ALICE, 'stream', {
+      path,
+      owner: 'carol',
+    });
+    expect(ofBob).toEqual({
+      allowed: true,
+      target: expect.objectContaining({ owner: 'bob', vhost: 'bob' }),
+    });
+    expect(ofAlice).toEqual({
+      allowed: true,
+      target: expect.objectContaining({ owner: 'alice', vhost: 'alice' }),
+    });
+    expect(ofCarol).toEqual({ allowed: false });
+  });
+
+  it('reads the twins again once their index has expired', async () => {
+    jest.useFakeTimers({ now: 0 });
+    const gitlab = gitlabFor({ sha: 's1', projects: [PROJECT] });
+    const config = testConfig({
+      'twin-index-cache-ttl': 1000,
+      'projects-cache-ttl': 1000,
+    });
+    const policy = new GitLabTwinPolicy(
+      config,
+      gitlab.asClient(),
+      new TwinReader(config, gitlab.asClient()),
+    );
+    await policy.listResources(ALICE, 'stream');
+    jest.setSystemTime(2000);
+    await policy.listResources(ALICE, 'stream');
+    expect(gitlab.callsTo(/repository\/tree/)).toBe(2);
   });
 });

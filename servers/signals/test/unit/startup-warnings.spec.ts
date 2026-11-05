@@ -1,5 +1,5 @@
 import { describe, expect, it } from '@jest/globals';
-import startupWarnings from 'src/config/startup-warnings';
+import startupWarnings, { startupErrors } from 'src/config/startup-warnings';
 import testConfig from 'test/helpers/config';
 
 const CONFIGURED = {
@@ -10,22 +10,35 @@ const CONFIGURED = {
 describe('startup warnings', () => {
   it('has none when GitLab and the OAuth application are set', () => {
     expect(startupWarnings(testConfig(CONFIGURED))).toEqual([]);
+    expect(startupErrors(testConfig(CONFIGURED))).toEqual([]);
   });
 
-  it('warns when the OAuth application check is off', () => {
-    const warnings = startupWarnings(
+  it('refuses to start when the OAuth application check is off', () => {
+    const errors = startupErrors(
       testConfig({ ...CONFIGURED, 'gitlab-client-id': '' }),
     );
-    expect(warnings).toHaveLength(1);
-    expect(warnings[0]).toMatch(/gitlab-client-id is not set/);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toMatch(/gitlab-client-id is not set/);
+    expect(errors[0]).toMatch(/allow-any-gitlab-client/);
   });
 
-  it('warns when no GitLab is set', () => {
-    const warnings = startupWarnings(
-      testConfig({ ...CONFIGURED, 'gitlab-url': '' }),
-    );
-    expect(warnings).toEqual([
+  it('starts with a warning when the development flag allows any client', () => {
+    const config = testConfig({
+      ...CONFIGURED,
+      'gitlab-client-id': '',
+      'allow-any-gitlab-client': true,
+    });
+    expect(startupErrors(config)).toEqual([]);
+    const warnings = startupWarnings(config);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toMatch(/allow-any-gitlab-client is on/);
+  });
+
+  it('warns when no GitLab is set, and then needs no client id', () => {
+    const config = testConfig({ 'gitlab-url': '', 'gitlab-client-id': '' });
+    expect(startupWarnings(config)).toEqual([
       'gitlab-url is not set: every request with a token is refused',
     ]);
+    expect(startupErrors(config)).toEqual([]);
   });
 });

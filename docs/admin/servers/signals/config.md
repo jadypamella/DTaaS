@@ -23,7 +23,8 @@ The keys a deployment sets are:
 | `gitlab-url` | The GitLab that signs users in. The gateway sends the user's token to this address and to no other |
 | `gitlab-group` | The group whose projects hold the users' twins, `DTaaS` by default |
 | `gitlab-branch` | The branch whose committed `visualisation.json` files declare the signals, `master` by default |
-| `gitlab-client-id` | The Application ID of the DTaaS client OAuth application, `REACT_APP_CLIENT_ID` in `client.js`. A token GitLab issued to another OAuth application is refused. The examples carry the placeholder `<DTAAS_CLIENT_APPLICATION_ID>`, which refuses every token until it is replaced. Empty turns the check off and the gateway logs a warning at startup |
+| `gitlab-client-id` | The Application ID of the DTaaS client OAuth application, `REACT_APP_CLIENT_ID` in `client.js`. A token GitLab issued to another OAuth application is refused. The examples carry the placeholder `<DTAAS_CLIENT_APPLICATION_ID>`, which refuses every token until it is replaced. Left empty, the gateway refuses to start unless `allow-any-gitlab-client` is `true` |
+| `allow-any-gitlab-client` | `false` by default. `true` lets the gateway start with an empty `gitlab-client-id` and accept any OAuth application's token, with a warning. Only for a local development stack, never for a deployment that real users reach |
 | `forwarded-user-header` | A header that must carry the e-mail of the token's user, such as `x-forwarded-user` behind traefik-forward-auth. Empty skips the check |
 | `rabbitmq-url` | The broker, `amqp://` or `amqps://`, with no credentials in the address |
 | `rabbitmq-user` | The read-only service user, `dtaas-signals` by default |
@@ -34,9 +35,12 @@ The keys a deployment sets are:
 | `influx-org-template`, `influx-bucket-template` | The org and bucket a twin may name, `{owner}` by default. Both must contain `{owner}` |
 
 The other keys set the limits of a request and of a user, such as
-`max-streams-per-user` and `range-max-span`, and their defaults suit most
-deployments. `cors-allow-origin` stays empty when Traefik serves the gateway
-and the client from the same origin.
+`max-streams-per-user`, `max-backlog-bytes`, `stream-recheck-interval` and
+`range-max-span`, and their defaults suit most deployments. The sample also
+documents the keys whose defaults follow the DTaaS conventions: `twins-folder`,
+`default-channel`, `rabbitmq-exchange`, `rabbitmq-queue-prefix`,
+`rabbitmq-port` and `rabbitmq-tls-port`. `cors-allow-origin` stays empty
+when Traefik serves the gateway and the client from the same origin.
 
 ## Secrets
 

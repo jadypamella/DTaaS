@@ -9,7 +9,6 @@ import { signalsOfVisualisation } from './visualisation.js';
 /** A project of the DTaaS group: the repository of one user, its owner. */
 export type GroupProject = { id: number; owner: string };
 
-const TWINS_FOLDER = 'digital_twins';
 const VISUALISATION_FILE = 'visualisation.json';
 
 const branchSchema = z.object({ commit: z.object({ id: z.string().min(1) }) });
@@ -64,7 +63,8 @@ export default class TwinReader {
     sha: string,
     token: string,
   ): Promise<string[]> {
-    const resource = `api/v4/projects/${project.id}/repository/tree?path=${TWINS_FOLDER}&ref=${encodeURIComponent(sha)}`;
+    const folder = encodeURIComponent(this.config.get('twins-folder'));
+    const resource = `api/v4/projects/${project.id}/repository/tree?path=${folder}&ref=${encodeURIComponent(sha)}`;
     const entries = await this.gitlab
       .getPages(resource, token)
       .catch(notFoundAs([]));
@@ -83,7 +83,7 @@ export default class TwinReader {
     token: string,
   ): Promise<SignalTarget[]> {
     const file = encodeURIComponent(
-      `${TWINS_FOLDER}/${twin}/${VISUALISATION_FILE}`,
+      `${this.config.get('twins-folder')}/${twin}/${VISUALISATION_FILE}`,
     );
     const resource = `api/v4/projects/${project.id}/repository/files/${file}/raw?ref=${encodeURIComponent(sha)}`;
     const text = await this.gitlab
@@ -110,7 +110,9 @@ export default class TwinReader {
       orgTemplate: this.config.get('influx-org-template'),
       bucketTemplate: this.config.get('influx-bucket-template'),
       maxPathLength: this.config.get('max-path-length'),
+      defaultChannel: this.config.get('default-channel'),
       warn: (message: string) => this.logger.warn(message),
+      log: (message: string) => this.logger.log(message),
     };
   }
 }

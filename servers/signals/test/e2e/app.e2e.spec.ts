@@ -142,10 +142,30 @@ describe('Signals gateway e2e', () => {
     expect(opening).toContain('event: refused\ndata: {"paths":["bob/secret"]}');
     broker.publish('alice', 'alice.pump.flow', '{"value":3}');
     const text = await stream.readUntil('event: sample');
-    expect(text).toContain('"path":"alice/pump/flow","channel":"measured"');
+    expect(text).toContain(
+      '"path":"alice/pump/flow","twin":"pump","channel":"measured"',
+    );
     expect(text).toContain('"payload":"{\\"value\\":3}"');
     stream.close();
     await waitFor(() => broker.bindings.length === 0);
+  });
+
+  it("serves the user's delivery counts only with a token", async () => {
+    await waitFor(() =>
+      logger.lines.some((line) => line.includes('"stream-end"')),
+    );
+    const stats = (token?: string) =>
+      fetch(`${base}/signals/stats`, {
+        headers:
+          token === undefined ? {} : { Authorization: `Bearer ${token}` },
+      });
+    expect((await stats()).status).toBe(401);
+    const response = await stats(ALICE_TOKEN);
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      forwarded: 1,
+      dropped: { tooLarge: 0, congested: 0 },
+    });
   });
 
   it('refuses a non-member with 403 and binds nothing', async () => {

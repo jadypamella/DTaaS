@@ -12,7 +12,11 @@ export type Subject = { id: number; username: string; token: string };
 /** Both actions only read: live samples, or past samples. */
 export type Action = 'stream' | 'range';
 
-export type Resource = { path: string };
+/**
+ * One signal of one owner. Two owners may declare the same topic, each in
+ * their own vhost, so the path alone does not name a signal.
+ */
+export type Resource = { path: string; owner: string };
 
 export type InfluxSource = {
   org: string;

@@ -32,8 +32,10 @@ type ProjectIndex = { sha: string; targets: SignalTarget[] };
 export default class GitLabTwinPolicy implements AccessPolicy {
   private readonly projects = new TtlCache<GroupProject[]>();
   // Keyed by project. A new commit on the branch replaces the entry, so the
-  // index is rebuilt only when the committed files may have changed.
-  private readonly indexes = new Map<number, ProjectIndex>();
+  // index is rebuilt only when the committed files may have changed. Entries
+  // expire, and the cache is bounded, so projects no one reads any more do
+  // not stay in memory.
+  private readonly indexes = new TtlCache<ProjectIndex>();
 
   // eslint-disable-next-line no-useless-constructor
   constructor(
@@ -49,7 +51,8 @@ export default class GitLabTwinPolicy implements AccessPolicy {
   ): Promise<Decision> {
     const targets = await this.listResources(subject, action);
     const target = targets.find(
-      (candidate) => candidate.path === resource.path,
+      (candidate) =>
+        candidate.path === resource.path && candidate.owner === resource.owner,
     );
     return target === undefined
       ? { allowed: false }
@@ -91,10 +94,12 @@ export default class GitLabTwinPolicy implements AccessPolicy {
   ): Promise<SignalTarget[]> {
     const sha = await this.reader.branchSha(project, token);
     if (sha === undefined) return [];
-    const cached = this.indexes.get(project.id);
+    const key = String(project.id);
+    const cached = this.indexes.get(key);
     if (cached?.sha === sha) return cached.targets;
     const targets = await this.reader.signalsAt(project, sha, token);
-    this.indexes.set(project.id, { sha, targets });
+    const expiresAt = Date.now() + this.config.get('twin-index-cache-ttl');
+    this.indexes.set(key, { sha, targets }, expiresAt);
     return targets;
   }
 }

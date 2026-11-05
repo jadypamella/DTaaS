@@ -47,6 +47,18 @@ describe('urlSchema', () => {
     },
   );
 
+  it.each([
+    'https://user:secret@a.example/x',
+    'https://user@a.example/x',
+    'https://:secret@a.example/x',
+  ])('refuses %j, which carries a login', (value) => {
+    const result = absoluteOnly.safeParse(value);
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0].message).toBe(
+      'A URL must not carry a user name or password',
+    );
+  });
+
   it('refuses an empty string and a malformed URL', () => {
     expect(accepts(withPaths, '')).toBe(false);
     expect(accepts(withPaths, 'https://[')).toBe(false);

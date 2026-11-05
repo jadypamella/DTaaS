@@ -47,13 +47,32 @@ const allowedText = (rule: UrlRule) => {
 };
 
 /**
- * A URL restricted to an allowlist of schemes. An allowlist, and not a
- * blocklist of `javascript:` or `data:`, keeps a new or obfuscated scheme out
- * by default.
+ * Whether the URL carries no user name and no password. A library asset is
+ * read by everyone who can open the repository and reaches the browser, so a
+ * login written into `user:password@` would leak.
+ */
+const hasNoCredentials = (value: string) => {
+  try {
+    const url = new URL(value);
+    return url.username === '' && url.password === '';
+  } catch {
+    // A relative path names no host, so it carries no login either.
+    return true;
+  }
+};
+
+/**
+ * A URL restricted to an allowlist of schemes, with no user name or password.
+ * An allowlist, and not a blocklist of `javascript:` or `data:`, keeps a new
+ * or obfuscated scheme out by default.
  */
 export const urlSchema = (rule: UrlRule) =>
-  nonEmpty.refine((value) => isAllowed(value, rule), {
-    message: `Expected a URL with scheme ${allowedText(rule)}`,
-  });
+  nonEmpty
+    .refine((value) => isAllowed(value, rule), {
+      message: `Expected a URL with scheme ${allowedText(rule)}`,
+    })
+    .refine(hasNoCredentials, {
+      message: 'A URL must not carry a user name or password',
+    });
 
 export default urlSchema;

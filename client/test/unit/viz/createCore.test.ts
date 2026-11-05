@@ -80,6 +80,6 @@ describe('the core of a deployment', () => {
     const core = createCore({}, contents, [], noHost);
 
     expect(core.signals.connection.get(['a'])).toBe('down');
-    expect(core.viz.substrates.list()).toEqual(['image', 'embed']);
+    expect(core.viz.substrates.list()).toEqual(['image', 'embed', 'aec']);
   });
 });

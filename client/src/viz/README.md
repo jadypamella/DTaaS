@@ -17,6 +17,7 @@ architecture in `dtaas-sdk`. The contract it implements,
 | `gateway.ts`                 | 1       | The gateway's address, and the token header of every request       |
 | `sseStream.ts`               | 1       | Server-sent events read through fetch, so a request has a header   |
 | `payload.ts`                 | 1       | One broker message to one `SignalSample`                           |
+| `deliveryTimings.ts`         | 1       | The source, gateway and arrival times of the last live samples     |
 | `sampleStore.ts`             | 2       | Every recent sample of each signal, read by time                   |
 | `playhead.ts`                | 2       | The one clock every page reads, live or scrubbed                   |
 | `time.ts`                    | 2       | When a playhead counts as live, and the hour the timeline spans    |
@@ -26,7 +27,7 @@ architecture in `dtaas-sdk`. The contract it implements,
 | `resolve.ts`                 | 4       | Every encoding of a `visualisation.json` at one instant            |
 | `vizService.ts`              | 3 and 5 | The `viz` service: the file, and what extensions contribute        |
 | `createCore.ts`              |         | The core of a deployment, from `env.js`                            |
-| `substrates/`                | 3       | The standard `image` and `embed` substrates                        |
+| `substrates/`                | 3       | The standard `image`, `embed` and `aec` substrates                 |
 | `components/`                | 5       | The viewer and the timeline the Visualise tab draws                |
 
 ## The Standard Substrates
@@ -51,10 +52,20 @@ origin keeps its own origin, so a dashboard can sign in and draw. A file of
 the library (`lib://`) runs in an opaque origin, so it cannot act as the DTaaS
 site on the user's behalf.
 
+`aec` draws a building model in 3D with three.js. An `ifc-guid` anchor names
+an object by its IFC GlobalId, and the sensor gets a marker and a label on
+that object. The substrate reads the converted model (`.glb`) and the property
+tree (`.json`) beside it, which the Buildings page writes to the models
+folder. Around the canvas sit the options of the Buildings page, with the same
+keys: views, floors, transparency, shell, classes and help. A frame is drawn
+only when the camera or the model changes, and a closed pane gives its WebGL
+context back.
+
 ## The Visualise Tab
 
 `route/digitaltwins/visualise/` lists the twins in the library, reads the
-`visualisation.json` of the one chosen, and draws it with `TwinViewer`: one
+`visualisation.json` of the one chosen as committed in GitLab, the copy the
+signals gateway authorises against, and draws it with `TwinViewer`: one
 pane per substrate of the layout, every pane on the one playhead, which
 `Timeline` moves.
 
@@ -86,7 +97,14 @@ type is kept on the `simulated` channel.
 
 - ThingsBoard as a device registry, and the STOMP, HTTP and file transports
   the schema allows.
-- The 3D substrate. The Buildings extension still draws its own viewer.
+- One 3D viewer. The Buildings page of `bim-kit` still draws its own, so the
+  toolbar, legend and object panel of `aec` repeat it until that page mounts
+  this substrate.
+- The domain parts of `aec` as a `bim-kit` contribution, as the modular
+  architecture places them: the IFC to GLB conversion as a converter, the IFC
+  facts of a picked object as an inspector panel, and the heatmap by room or
+  floor as a scope rule. The architecture names `@thatopen` for `aec`, and the
+  substrate uses three.js like `bim-kit`.
 - The flow, glyph, field overlay and trajectory encodings, which resolve to
   no properties until a substrate draws them.
 - Saving a visualisation as a merge request.

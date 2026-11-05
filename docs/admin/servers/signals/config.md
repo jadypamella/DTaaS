@@ -3,8 +3,10 @@
 The **signals gateway microservice** serves the live and past signals of
 digital twins to the DTaaS client at `/signals`. It reads RabbitMQ and
 InfluxDB with read-only service credentials kept on the server, and it serves
-a user only the signals that the twins of that user declare. The browser holds
-no broker or InfluxDB credential.
+a user only the signals declared by the twins in the GitLab projects that the
+user can read. Access follows GitLab's project permissions, so a user who can
+read a project reads the signals of every twin in it. The browser holds no
+broker or InfluxDB credential.
 
 ## The Configuration File
 

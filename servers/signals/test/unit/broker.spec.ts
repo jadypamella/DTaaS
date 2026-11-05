@@ -61,6 +61,20 @@ describe('VhostLink', () => {
     expect(two.messages).toHaveLength(1);
   });
 
+  it('never publishes or sends, from the first bind to the last unbind', async () => {
+    const model = new FakeModel();
+    const { link } = linkWith(model);
+    const one = recorder();
+    await link.add(['a.b', 'a.c'], one.listener);
+    model.channel.deliver('a.b', 'x');
+    await link.remove(['a.b', 'a.c'], one.listener);
+    expect(one.messages).toHaveLength(1);
+    const writes = model.channel.operations.filter((op) =>
+      /^(publish|send) /.test(op),
+    );
+    expect(writes).toEqual([]);
+  });
+
   it('unbinds a key when its last stream leaves and closes when none is left', async () => {
     const model = new FakeModel();
     const { link, gone } = linkWith(model);

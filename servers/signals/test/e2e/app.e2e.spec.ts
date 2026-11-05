@@ -18,6 +18,7 @@ import { PUMP } from 'test/helpers/twins';
 
 const ALICE_TOKEN = 'alice-oauth-token-0123456789';
 const BOB_TOKEN = 'bob-oauth-token-9876543210';
+const EXPIRED_TOKEN = 'alice-expired-token-0000000000';
 const INFLUX_TOKEN = 'influx-read-token-abcdef';
 const FLOW = 'alice/pump/flow';
 const ENV_KEYS = [
@@ -65,6 +66,13 @@ describe('Signals gateway e2e', () => {
         username: 'bob',
         email: 'bob@example.org',
         projects: [],
+      },
+      [EXPIRED_TOKEN]: {
+        id: 1,
+        username: 'alice',
+        email: 'alice@example.org',
+        projects: [10],
+        expiresIn: 0,
       },
     },
     [{ id: 10, owner: 'alice', sha: 'c0ffee', twins: { pump: PUMP } }],
@@ -129,6 +137,15 @@ describe('Signals gateway e2e', () => {
     expect(
       (await post('stream', 'not-a-token', { paths: [FLOW] })).status,
     ).toBe(401);
+  });
+
+  it('refuses with 401 an expired token of a member, and an unknown token on range', async () => {
+    const range = { paths: [FLOW], channel: 'measured', from: 0, to: 1000 };
+    expect(
+      (await post('stream', EXPIRED_TOKEN, { paths: [FLOW] })).status,
+    ).toBe(401);
+    expect((await post('range', EXPIRED_TOKEN, range)).status).toBe(401);
+    expect((await post('range', 'not-a-token', range)).status).toBe(401);
   });
 
   it('streams a sample to a member of the twin', async () => {
@@ -211,7 +228,7 @@ describe('Signals gateway e2e', () => {
     expect(text).toContain(
       '"user":"bob","action":"stream","resource":"alice/pump/flow","decision":"deny"',
     );
-    [ALICE_TOKEN, BOB_TOKEN, INFLUX_TOKEN].forEach((token) =>
+    [ALICE_TOKEN, BOB_TOKEN, EXPIRED_TOKEN, INFLUX_TOKEN].forEach((token) =>
       expect(text).not.toContain(token),
     );
     expect(gitlab.requests.every((url) => !url.includes(ALICE_TOKEN))).toBe(

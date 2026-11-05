@@ -27,7 +27,9 @@ the platform credentials.
    files again. Their `mqtt` transports list the topics, with an optional
    `channel`, and their `influx` transport names the history.
 1. A requested path is allowed only when it is a topic one of those twins
-   declares. Everything else is refused, and any error while deciding refuses
+   declares. A grant covers a whole project: a user who can read a project
+   reads the signals of every twin in it, since GitLab has no permission for
+   one folder. Everything else is refused, and any error while deciding refuses
    every path. Each decision is logged with the user, the action, the path and
    the outcome, never with a token.
 1. A request names paths, not owners. When two projects the user can read
@@ -37,7 +39,10 @@ the platform credentials.
 1. While a stream is open, the decision is asked again every
    `stream-recheck-interval` (60 s). A path the user may no longer read is sent
    in a `refused` event and the stream ends, so the client reconnects without
-   it.
+   it. The recheck reads the user's project list through its cache, so a user
+   removed from a project stops receiving within `stream-recheck-interval`
+   plus `projects-cache-ttl`, 120 s with the defaults. A reconnect and a range
+   request read the same cache and are refused from the same moment.
 1. The declaration is checked against a copy of the transport part of the
    SDK contract (`src/authz/contract.schema.ts`). A file the contract rejects
    declares nothing. Transports other than `mqtt` and `influx` are valid and

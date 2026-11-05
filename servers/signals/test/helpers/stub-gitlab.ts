@@ -11,6 +11,8 @@ export type StubUser = {
   username: string;
   email: string;
   projects: number[];
+  /** What /oauth/token/info reports, 3600 s unless a test sets it. */
+  expiresIn?: number;
 };
 
 export type StubProject = {
@@ -53,7 +55,7 @@ export default class StubGitLab {
         pattern: /^\/oauth\/token\/info$/,
         answer: (_m, u) => ({
           resource_owner_id: u.id,
-          expires_in_seconds: 3600,
+          expires_in_seconds: u.expiresIn ?? 3600,
         }),
       },
       {

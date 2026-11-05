@@ -36,6 +36,18 @@ export class FakeChannel extends EventEmitter {
     return { consumerTag: 'tag' };
   }
 
+  // Recorded and never expected: the gateway only reads, so a test can show
+  // that a whole stream never writes to the broker.
+  publish(exchange: string, key: string): boolean {
+    this.operations.push(`publish ${exchange} ${key}`);
+    return true;
+  }
+
+  sendToQueue(queue: string): boolean {
+    this.operations.push(`send ${queue}`);
+    return true;
+  }
+
   deliver(routingKey: string, text: string): void {
     this.consumer?.({
       fields: { routingKey },
